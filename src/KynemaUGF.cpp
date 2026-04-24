@@ -1,5 +1,5 @@
 #include "KynemaUGF.h"
-#include "NaluEnv.h"
+#include "KynemaUGFEnv.h"
 #include "Realm.h"
 #include "TimeIntegrator.h"
 #include "overset/ExtOverset.h"
@@ -38,7 +38,7 @@ KynemaUGF::KynemaUGF(
     TIOGA::tioga& tg)
     : m_doc(inp_yaml), m_sim(m_doc), m_fnames(fnames), m_id(id), m_comm(comm)
 {
-    auto& env = sierra::nalu::NaluEnv::self();
+    auto& env = sierra::nalu::KynemaUGFEnv::self();
     env.parallelCommunicator_ = comm;
     MPI_Comm_size(comm, &env.pSize_);
     MPI_Comm_rank(comm, &env.pRank_);
@@ -54,10 +54,10 @@ void KynemaUGF::init_prolog(bool multi_solver_mode)
 {
     // Dump the input yaml to the start of the logfile
     // before the nalu banner
-    auto& env = sierra::nalu::NaluEnv::self();
+    auto& env = sierra::nalu::KynemaUGFEnv::self();
     env.naluOutputP0() << std::string(20, '#') << " INPUT FILE START "
                        << std::string(20, '#') << std::endl;
-    sierra::nalu::NaluParsingHelper::emit(*env.naluLogStream_, m_doc);
+    sierra::nalu::KynemaUGFParsingHelper::emit(*env.naluLogStream_, m_doc);
     env.naluOutputP0() << std::string(20, '#') << " INPUT FILE END   "
                        << std::string(20, '#') << std::endl;
 

@@ -1,5 +1,5 @@
 #include "KynemaUGF.h"
-#include "NaluEnv.h"
+#include "KynemaUGFEnv.h"
 #include "Realm.h"
 #include "TimeIntegrator.h"
 #include "overset/ExtOverset.h"
@@ -38,7 +38,7 @@ KynemaUGF::KynemaUGF(
     TIOGA::tioga& tg)
     : m_doc(inp_yaml), m_sim(m_doc), m_fnames(fnames), m_id(id), m_comm(comm)
 {
-    auto& env = sierra::nalu::NaluEnv::self();
+    auto& env = sierra::nalu::KynemaUGFEnv::self();
     env.parallelCommunicator_ = comm;
     MPI_Comm_size(comm, &env.pSize_);
     MPI_Comm_rank(comm, &env.pRank_);
@@ -54,10 +54,10 @@ void KynemaUGF::init_prolog(bool multi_solver_mode)
 {
     // Dump the input yaml to the start of the logfile
     // before the nalu banner
-    auto& env = sierra::nalu::NaluEnv::self();
+    auto& env = sierra::nalu::KynemaUGFEnv::self();
     env.naluOutputP0() << std::string(20, '#') << " INPUT FILE START "
                        << std::string(20, '#') << std::endl;
-    sierra::nalu::NaluParsingHelper::emit(*env.naluLogStream_, m_doc);
+    sierra::nalu::KynemaUGFParsingHelper::emit(*env.naluLogStream_, m_doc);
     env.naluOutputP0() << std::string(20, '#') << " INPUT FILE END   "
                        << std::string(20, '#') << std::endl;
 
@@ -76,23 +76,23 @@ void KynemaUGF::prepare_solver_prolog()
     m_sim.timeIntegrator_->prepare_for_time_integration();
 }
 
-void NaluWind::prepare_solver_epilog()
+void KynemaUGFWind::prepare_solver_epilog()
 {
     for (auto* realm : m_sim.timeIntegrator_->realmVec_)
         realm->output_converged_results();
 }
 
-void NaluWind::pre_advance_stage0(size_t inonlin)
+void KynemaUGFWind::pre_advance_stage0(size_t inonlin)
 {
     m_sim.timeIntegrator_->prepare_time_step(inonlin);
 }
 
-void NaluWind::pre_advance_stage1(size_t inonlin)
+void KynemaUGFWind::pre_advance_stage1(size_t inonlin)
 {
     m_sim.timeIntegrator_->pre_realm_advance_stage1(inonlin);
 }
 
-void NaluWind::pre_advance_stage2(size_t inonlin)
+void KynemaUGFWind::pre_advance_stage2(size_t inonlin)
 {
     m_sim.timeIntegrator_->pre_realm_advance_stage2(inonlin);
 }
