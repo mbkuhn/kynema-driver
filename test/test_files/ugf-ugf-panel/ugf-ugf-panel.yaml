@@ -2,8 +2,8 @@
 
 exawind:
   kynema_ugf_inp:
-    - nalu_platform.yaml
-    - nalu_panel.yaml
+    - ugf_platform.yaml
+    - ugf_panel.yaml
   num_timesteps: 10
   additional_picard_iterations: 2
   use_adaptive_holemap: true
