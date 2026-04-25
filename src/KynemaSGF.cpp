@@ -1,8 +1,8 @@
 #include "KynemaSGF.h"
-#include "amr-wind/incflo.H"
-#include "amr-wind/CFDSim.H"
-#include "amr-wind/core/SimTime.H"
-#include "amr-wind/utilities/console_io.H"
+#include "src/incflo.H"
+#include "src/CFDSim.H"
+#include "src/core/SimTime.H"
+#include "src/utilities/console_io.H"
 #include "AMReX.H"
 #include "AMReX_ParmParse.H"
 

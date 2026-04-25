@@ -1,6 +1,6 @@
 target_sources(${EXAWIND_LIB_NAME} PRIVATE
-  AMRTiogaIface.cpp
-  AMRTiogaIface.h
+  SGFTiogaIface.cpp
+  SGFTiogaIface.h
   KynemaSGF.cpp
   KynemaSGF.h
   ExawindSolver.h

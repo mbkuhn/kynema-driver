@@ -1,5 +1,5 @@
-#ifndef AMRTIOGAIFACE_H
-#define AMRTIOGAIFACE_H
+#ifndef SGFTIOGAIFACE_H
+#define SGFTIOGAIFACE_H
 
 #include <memory>
 #include <vector>
@@ -15,10 +15,10 @@ struct AMRMeshInfo;
 
 namespace exawind {
 
-class AMRTiogaIface
+class SGFTiogaIface
 {
 public:
-    AMRTiogaIface(kynema_sgf::CFDSim&, TIOGA::tioga& tg);
+    SGFTiogaIface(kynema_sgf::CFDSim&, TIOGA::tioga& tg);
 
     void pre_overset_conn_work();
 
@@ -41,4 +41,4 @@ private:
 
 } // namespace exawind
 
-#endif /* AMRTIOGAIFACE_H */
+#endif /* SGFTIOGAIFACE_H */
