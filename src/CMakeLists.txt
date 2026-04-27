@@ -21,7 +21,7 @@ target_link_libraries(${KYNEMA_LIB_NAME} PUBLIC
   Kynema-SGF::kynema_sgf_api
   Kynema-SGF::buildInfokynema_sgf_obj
   AMReX::amrex
-  Kynema-UGF::kynema_ugf)
+  Kynema-UGF::kynema-ugf-lib)
 
 target_link_libraries(${KYNEMA_LIB_NAME} PUBLIC $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>)
 target_link_libraries(${KYNEMA_LIB_NAME} PUBLIC $<$<BOOL:${MPI_Fortran_FOUND}>:MPI::MPI_Fortran>)
