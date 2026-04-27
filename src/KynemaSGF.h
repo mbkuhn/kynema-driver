@@ -1,5 +1,5 @@
 #include "src/incflo.H"
-#include "AMRTiogaIface.h"
+#include "SGFTiogaIface.h"
 #include "KynemaSolver.h"
 
 namespace TIOGA {
@@ -12,7 +12,7 @@ class KynemaSGF : public KynemaSolver
 {
 private:
     incflo m_incflo;
-    AMRTiogaIface m_tgiface;
+    SGFTiogaIface m_tgiface;
     std::vector<std::string> m_cell_vars;
     std::vector<std::string> m_node_vars;
 

@@ -13,7 +13,7 @@ class tioga;
 struct AMRMeshInfo;
 } // namespace TIOGA
 
-namespace exawind {
+namespace driver {
 
 class SGFTiogaIface
 {
@@ -39,6 +39,6 @@ private:
     std::unique_ptr<TIOGA::AMRMeshInfo> m_info;
 };
 
-} // namespace exawind
+} // namespace driver
 
 #endif /* SGFTIOGAIFACE_H */

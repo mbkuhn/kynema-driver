@@ -15,14 +15,14 @@ void KynemaUGF::initialize()
 {
     Kokkos::initialize();
     // Hypre initialization
-    nalu_hypre::hypre_initialize();
-    nalu_hypre::hypre_set_params();
+    kynema_ugf_hypre::hypre_initialize();
+    kynema_ugf_hypre::hypre_set_params();
 }
 
 void KynemaUGF::finalize()
 {
     // Hypre cleanup
-    nalu_hypre::hypre_finalize();
+    kynema_ugf_hypre::hypre_finalize();
 
     if (Kokkos::is_initialized()) {
         Kokkos::finalize();
@@ -38,12 +38,12 @@ KynemaUGF::KynemaUGF(
     TIOGA::tioga& tg)
     : m_doc(inp_yaml), m_sim(m_doc), m_fnames(fnames), m_id(id), m_comm(comm)
 {
-    auto& env = sierra::nalu::KynemaUGFEnv::self();
+    auto& env = sierra::kynema_ugf::KynemaUGFEnv::self();
     env.parallelCommunicator_ = comm;
     MPI_Comm_size(comm, &env.pSize_);
     MPI_Comm_rank(comm, &env.pRank_);
 
-    ::tioga_nalu::TiogaRef::self(&tg);
+    ::tioga_kynema_ugf::TiogaRef::self(&tg);
 
     env.set_log_file_stream(logfile);
 }
@@ -53,12 +53,12 @@ KynemaUGF::~KynemaUGF() = default;
 void KynemaUGF::init_prolog(bool multi_solver_mode)
 {
     // Dump the input yaml to the start of the logfile
-    // before the nalu banner
-    auto& env = sierra::nalu::KynemaUGFEnv::self();
-    env.naluOutputP0() << std::string(20, '#') << " INPUT FILE START "
+    // before the kynema_ugf banner
+    auto& env = sierra::kynema_ugf::KynemaUGFEnv::self();
+    env.kynema_ugfOutputP0() << std::string(20, '#') << " INPUT FILE START "
                        << std::string(20, '#') << std::endl;
-    sierra::nalu::KynemaUGFParsingHelper::emit(*env.naluLogStream_, m_doc);
-    env.naluOutputP0() << std::string(20, '#') << " INPUT FILE END   "
+    sierra::kynema_ugf::KynemaUGFParsingHelper::emit(*env.kynema_ugfLogStream_, m_doc);
+    env.kynema_ugfOutputP0() << std::string(20, '#') << " INPUT FILE END   "
                        << std::string(20, '#') << std::endl;
 
     m_sim.load(m_doc);

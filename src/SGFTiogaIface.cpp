@@ -1,8 +1,8 @@
 #include <vector>
 
 #include "SGFTiogaIface.h"
-#include "amr-wind/CFDSim.H"
-#include "amr-wind/overset/TiogaInterface.H"
+#include "src/CFDSim.H"
+#include "src/overset/TiogaInterface.H"
 #include "TiogaMeshInfo.h"
 #include "tioga.h"
 

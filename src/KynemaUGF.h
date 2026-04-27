@@ -19,7 +19,7 @@ class KynemaUGF : public KynemaSolver
 {
 private:
     YAML::Node m_doc;
-    sierra::nalu::Simulation m_sim;
+    sierra::kynema_ugf::Simulation m_sim;
     std::vector<std::string> m_fnames;
     int m_ncomps;
     int m_id;

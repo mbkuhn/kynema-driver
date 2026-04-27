@@ -19,9 +19,9 @@ kynema_driver:
     ################
     - base_input_file: cylinder-ugf.yaml
       logfile: stationary_front_cylinder.log
-      # set this value if you want to write the final nalu instances to disk 
+      # set this value if you want to write the final kynema_ugf instances to disk 
       write_final_yaml_to_disk: true
-      # same syntax as nalu_replace_all but for this specific instance
+      # same syntax as ugf_replace_all but for this specific instance
       replace: 
         realms:
         - mesh_motion:
@@ -33,7 +33,7 @@ kynema_driver:
     ################
     # back cylinder
     ################
-    - base_input_file: cylinder-nalu.yaml
+    - base_input_file: cylinder-ugf.yaml
       logfile: moving_back_cylinder.log
       write_final_yaml_to_disk: true
       replace: 
