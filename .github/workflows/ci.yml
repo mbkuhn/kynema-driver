@@ -40,10 +40,10 @@ jobs:
             source ${KYNEMA_MANAGER}/start.sh && spack-start && \
             spack env activate e4s-build && \
             cd ${KYNEMA_MANAGER}/environments/e4s-build && \
-            ln -s ${GITHUB_WORKSPACE} kynema && \
-            spack develop --no-modify-concrete-specs --no-clone kynema@=master && \
+            ln -s ${GITHUB_WORKSPACE} kynema-driver && \
+            spack develop --no-modify-concrete-specs --no-clone kynema-driver@=main && \
             spack concretize -f && \
             spack install && \
-            spack cd -b kynema && \
-            spack build-env kynema ctest -j $(nproc) -LE no-ci --output-on-failure \
+            spack cd -b kynema-driver && \
+            spack build-env kynema-driver ctest -j $(nproc) -LE no-ci --output-on-failure \
           "
