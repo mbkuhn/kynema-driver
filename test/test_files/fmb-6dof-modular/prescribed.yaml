@@ -1,0 +1,8 @@
+target_fmb: 1
+loads:
+  - node: 0
+    start_step: 22
+    force: [0., 0., 50., 0., 0., 0.]
+  - node: 0
+    start_step: 1
+    force: [0., 0., 0., 0., 0., 0.]

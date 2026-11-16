@@ -5,6 +5,7 @@
 #include "Module.h"
 #include "ParallelPrinter.h"
 #include "Timers.h"
+#include <stdexcept>
 
 namespace TIOGA {
 class tioga;
@@ -60,6 +61,12 @@ public:
     Simulation(MPI_Comm comm);
     ~Simulation();
 
+    void register_module(std::unique_ptr<Module> module)
+    {
+        if (!module) throw std::invalid_argument("Cannot register a null module");
+        m_modules.emplace_back(std::move(module));
+    }
+
     //! Register a module (legacy - passes Tioga instance)
     template <class ModuleType, class... Args>
     void register_module(Args... args)
@@ -70,7 +77,7 @@ public:
 
     //! Register a module without Tioga (for standalone modules like FMB)
     template <class ModuleType, class... Args>
-    ModuleType& register_module_no_tioga(Args... args)
+    ModuleType& register_module_no_tioga(Args&&... args)
     {
         auto module = std::make_unique<ModuleType>(std::forward<Args>(args)...);
         auto& result = *module;

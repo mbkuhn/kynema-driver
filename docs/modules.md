@@ -72,3 +72,37 @@ Connectivity and overset exchange skip non-CFD modules. SGF/UGF still run their
 pre-advance preparation when overset is disabled.
 FMB currently runs alongside the other modules but does not yet exchange forces
 or displacements with them.
+
+## Prescribed FMB loads
+
+The driver-owned `Prescribed` module supplies six-component nodal forces
+`[Fx, Fy, Fz, Mx, My, Mz]`. Select it with `prescribed_inp` (a filename or list)
+alongside `kynema_fmb_inp`. Each prescribed YAML file names one FMB instance:
+
+```yaml
+target_fmb: 1
+loads:
+  - node: 0
+    start_step: 22
+    force: [0., 0., 50., 0., 0., 0.]
+```
+
+FMB instance IDs and start steps are one-based; node indices are zero-based.
+Forces default to zero. Each entry replaces that node's force starting at the
+specified step until the next entry for that node. Duplicate node/start-step
+pairs are errors. Only one prescribed module may target each FMB instance.
+It runs on its target's communicator, so `--fmb` and `fmb_procs` also determine
+its ranks; there is no separate rank allocation or MPI transfer.
+Use at least two nonlinear iterations: FMB predicts loads on the first
+iteration and consumes the prescribed values on subsequent iterations.
+
+FMB's `simulation.output_file` enables CSV output of every node's position and
+quaternion, with the completed step and time, once per finalized timestep on
+the instance's rank zero. Give separate output paths to separate FMB instances.
+
+The `fmb-6dof-modular` regressions launch `kynema_driver` using these YAML inputs
+and compare all output rows with `reference.csv` at absolute tolerance `1e-10`.
+The saved reference was generated from the original standalone FMB sequence
+(predict/advance, apply loads/reset/advance, output/finalize), for 40 steps of
+0.125 seconds, applying 50 N vertically to the mass starting at step 22.
+The Picard variant uses three nonlinear iterations and one extra correction.

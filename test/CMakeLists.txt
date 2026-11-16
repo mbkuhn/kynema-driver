@@ -183,15 +183,30 @@ endif()
 if(KYNEMA_DRIVER_ENABLE_FMB)
   set(TEST_NAME fmb-6dof-modular)
   setup_test()
-  add_executable(fmb-6dof-modular-test
-    test_files/fmb-6dof-modular/test_fmb_6dof.cpp)
-  target_link_libraries(fmb-6dof-modular-test PRIVATE ${KYNEMA_DRIVER_LIB_NAME})
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME fmb-6dof-modular
-    COMMAND fmb-6dof-modular-test
-      "${CURRENT_TEST_BINARY_DIR}/fmb-6dof-modular.yaml")
-  set_tests_properties(fmb-6dof-modular PROPERTIES
+    COMMAND ${Python3_EXECUTABLE} "${CURRENT_TEST_SOURCE_DIR}/check_regression.py"
+      reference.csv fmb-response.csv
+      ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+      $<TARGET_FILE:${KYNEMA_DRIVER_EXE_NAME}> ${MPIEXEC_POSTFLAGS}
+      --fmb 1 driver-regression.yaml)
+  add_test(NAME fmb-6dof-modular-picard
+    COMMAND ${Python3_EXECUTABLE} "${CURRENT_TEST_SOURCE_DIR}/check_regression.py"
+      reference.csv fmb-response.csv
+      ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+      $<TARGET_FILE:${KYNEMA_DRIVER_EXE_NAME}> ${MPIEXEC_POSTFLAGS}
+      --fmb 2 driver-regression-picard.yaml)
+  set_tests_properties(fmb-6dof-modular fmb-6dof-modular-picard PROPERTIES
     WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
-    LABELS "regression")
+    LABELS "regression" RUN_SERIAL TRUE TIMEOUT 90
+    FAIL_REGULAR_EXPRESSION "Overset update interval")
+  add_test(NAME fmb-prescribed-invalid
+    COMMAND ${Python3_EXECUTABLE} "${CURRENT_TEST_SOURCE_DIR}/check_invalid_prescribed.py"
+      ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+      $<TARGET_FILE:${KYNEMA_DRIVER_EXE_NAME}> ${MPIEXEC_POSTFLAGS} --fmb 1)
+  set_tests_properties(fmb-prescribed-invalid PROPERTIES
+    WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
+    LABELS "regression" RUN_SERIAL TRUE TIMEOUT 210)
   add_test(NAME fmb-cli-single
     COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
       $<TARGET_FILE:${KYNEMA_DRIVER_EXE_NAME}> ${MPIEXEC_POSTFLAGS}

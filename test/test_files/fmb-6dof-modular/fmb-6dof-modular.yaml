@@ -1,4 +1,5 @@
 simulation:
+  output_file: fmb-response.csv
   duration: 0.07947019876630465
   step_size: 0.125
   n_steps: 7

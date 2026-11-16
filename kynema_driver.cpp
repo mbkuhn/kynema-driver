@@ -11,6 +11,7 @@
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_FMB
 #include "src/modules/KynemaFMB.h"
+#include "src/modules/Prescribed.h"
 #include <Kokkos_Core.hpp>
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_ROCM
@@ -38,6 +39,8 @@ std::string usage(const char* name)
            "  YAML keys: kynema_sgf_inp, kynema_ugf_inp, kynema_fmb_inp.\n"
            "  UGF and FMB accept a filename or list; ugf_procs and fmb_procs\n"
            "  optionally specify the rank count per instance.\n"
+           "  prescribed_inp accepts a file or list of force schedules, each\n"
+           "  co-located with its target_fmb instance (one-based).\n"
            "  Modules are enabled at build time with "
            "KYNEMA_DRIVER_ENABLE_SGF,\n"
            "  KYNEMA_DRIVER_ENABLE_UGF and KYNEMA_DRIVER_ENABLE_FMB.\n";
@@ -174,6 +177,17 @@ int run(int argc, char** argv, int size, int rank)
     const bool sgf = static_cast<bool>(node["kynema_sgf_inp"]);
     const YAML::Node ugf = input_list(node, "kynema_ugf_inp");
     const YAML::Node fmb = input_list(node, "kynema_fmb_inp");
+    const YAML::Node prescribed = input_list(node, "prescribed_inp");
+    std::vector<YAML::Node> prescribed_inputs(fmb.size());
+    for (const auto& file : prescribed) {
+        const auto input = YAML::LoadFile(file.as<std::string>());
+        const int target = input["target_fmb"].as<int>();
+        if (target < 1 || static_cast<size_t>(target) > fmb.size())
+            throw std::runtime_error("Prescribed target_fmb is out of range");
+        if (!prescribed_inputs[target - 1].IsNull())
+            throw std::runtime_error("Only one prescribed module is allowed per FMB instance");
+        prescribed_inputs[target - 1] = input;
+    }
     if (!sgf && ugf.size() == 0 && fmb.size() == 0)
         throw std::runtime_error("No modules specified in kynema_driver");
     if (static_cast<size_t>(sgf) + ugf.size() > 1) {
@@ -312,11 +326,21 @@ int run(int argc, char** argv, int size, int rank)
         }
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_FMB
-        for (size_t i = 0; i < fmb.size(); ++i)
-            if (fmb_comms[i] != MPI_COMM_NULL)
-                sim.register_module_no_tioga<driver::KynemaFMB>(
+        for (size_t i = 0; i < fmb.size(); ++i) {
+            if (fmb_comms[i] != MPI_COMM_NULL) {
+                auto module = std::make_unique<driver::KynemaFMB>(
                     YAML::LoadFile(fmb[i].as<std::string>()), fmb_comms[i],
                     static_cast<int>(i + 1));
+                // Providers must set their outputs before FMB consumes them.
+                if (!prescribed_inputs[i].IsNull()) {
+                    if (nonlinear < 2)
+                        throw std::runtime_error("Prescribed FMB loads require at least two nonlinear iterations");
+                    sim.register_module_no_tioga<driver::Prescribed>(
+                        prescribed_inputs[i], *module);
+                }
+                sim.register_module(std::move(module));
+            }
+        }
 #endif
         sim.initialize();
         sim.run_timesteps(picard, nonlinear, steps, max_time);
