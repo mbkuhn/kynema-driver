@@ -62,6 +62,10 @@ SGF and UGF still use adapters pending refactoring in their respective repositor
 
 Modules execute in the same timestep loop. Overset hooks are optional no-ops in
 `Module`; only CFD modules opt in with `is_cfd()` and implement them.
+CFD modules use `is_background_only()` to select background-only connectivity;
+other CFD modules are generic. Kynema-SGF is a background-only CFD module whereas
+Kynema-UGF is a generic CFD module because it can take on a near-body or background
+role in an overset simulation. Non-CFD modules are neither category.
 Overset activates only with at least two CFD modules or instances, counted
 once per module communicator, regardless of rank count or non-CFD modules.
 Connectivity and overset exchange skip non-CFD modules. SGF/UGF still run their

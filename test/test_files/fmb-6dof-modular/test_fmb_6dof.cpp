@@ -18,6 +18,7 @@ class NonCFDModule : public driver::KynemaFMB
 {
 public:
     using driver::KynemaFMB::KynemaFMB;
+    bool is_background_only() override { reject_overset(); }
     int overset_update_interval() override { reject_overset(); }
 
 protected:

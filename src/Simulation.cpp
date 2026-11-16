@@ -28,15 +28,15 @@ void Simulation::check_module_types()
     bool gflag[2] = {false, false};
     flag[0] =
         std::any_of(m_modules.begin(), m_modules.end(), [](const auto& module) {
-            return module->is_cfd() && module->is_amr();
+            return module->is_cfd() && module->is_background_only();
         });
     flag[1] =
         std::any_of(m_modules.begin(), m_modules.end(), [](const auto& module) {
-            return module->is_cfd() && module->is_unstructured();
+            return module->is_cfd() && !module->is_background_only();
         });
     MPI_Allreduce(flag, gflag, 2, MPI_C_BOOL, MPI_LOR, m_comm);
-    m_has_amr = gflag[0];
-    m_has_unstructured = gflag[1];
+    m_has_background_only = gflag[0];
+    m_has_generic_cfd = gflag[1];
 }
 
 void Simulation::determine_overset_interval()
@@ -117,7 +117,7 @@ void Simulation::perform_overset_connectivity()
         if (module->is_cfd()) module->call_pre_overset_conn_work();
 
     m_timers_tg.tick("Connectivity");
-    if (m_has_amr) m_tg.preprocess_amr_data();
+    if (m_has_background_only) m_tg.preprocess_amr_data();
     m_tg.profile();
     if ((m_is_adaptive_holemap_alg == 1) &&
         (m_complementary_comm_initialized == false)) {
@@ -126,7 +126,7 @@ void Simulation::perform_overset_connectivity()
         if (m_num_composite_bodies > 0) m_tg.assembleCompositeMap();
     }
     m_tg.performConnectivity();
-    if (m_has_amr) m_tg.performConnectivityAMR();
+    if (m_has_background_only) m_tg.performConnectivityAMR();
     m_timers_tg.tock("Connectivity");
 
     for (auto& module : m_modules)
@@ -143,15 +143,15 @@ void Simulation::exchange_solution(bool increment_time)
         if (module->is_cfd()) module->call_register_solution();
 
     m_timers_tg.tick("SolExchange", increment_time);
-    if (m_has_amr) {
+    if (m_has_background_only) {
         m_tg.dataUpdate_AMR();
     } else {
         const int row_major = 0;
-        // assuming this pathway is kynema-ugf only and all instances have same
-        // number of field components
+        // All generic CFD instances are assumed to have the same number of
+        // field components.
         int ncomps = 0;
         for (auto& module : m_modules)
-            if (module->is_cfd() && module->is_unstructured())
+            if (module->is_cfd() && !module->is_background_only())
                 ncomps = std::max(ncomps, module->get_ncomps());
         MPI_Allreduce(MPI_IN_PLACE, &ncomps, 1, MPI_INT, MPI_MAX, m_comm);
         m_tg.dataUpdate(ncomps, row_major);

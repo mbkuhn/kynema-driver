@@ -27,8 +27,7 @@ public:
         TIOGA::tioga&);
     ~KynemaSGF();
     bool is_cfd() override { return true; }
-    bool is_unstructured() override { return false; }
-    bool is_amr() override { return true; }
+    bool is_background_only() override { return true; }
     bool is_fixed_timestep_size() override;
     int overset_update_interval() override;
     int time_index() override;

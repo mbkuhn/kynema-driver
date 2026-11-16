@@ -19,10 +19,10 @@ private:
     MPI_Comm m_comm;
     //! List of modules active in this overset simulation
     std::vector<std::unique_ptr<Module>> m_modules;
-    //! Flag indicating whether an AMR module is active
-    bool m_has_amr{false};
-    //! Flag indicating whether an unstructured module is active
-    bool m_has_unstructured{false};
+    //! Flag indicating whether a background-only CFD module is active
+    bool m_has_background_only{false};
+    //! Flag indicating whether a generic CFD module is active
+    bool m_has_generic_cfd{false};
     bool m_use_overset{false};
     //! Interval for overset updates during timestepping
     int m_overset_update_interval{100000000};
@@ -41,7 +41,7 @@ private:
     int m_num_composite_bodies{0};
     //! Tioga instance
     TIOGA::tioga m_tg;
-    //! Determine unstructured and structured module types
+    //! Determine background-only and generic CFD module types
     void check_module_types();
     //! Determine if we should update connectivity during time integration
     void determine_overset_interval();
