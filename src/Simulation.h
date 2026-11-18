@@ -5,7 +5,10 @@
 #include "Module.h"
 #include "ParallelPrinter.h"
 #include "Timers.h"
+#include <memory>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 namespace TIOGA {
 class tioga;
@@ -16,10 +19,35 @@ namespace driver {
 class Simulation
 {
 private:
+    struct RegisteredModule
+    {
+        std::unique_ptr<Module> instance;
+        MPI_Comm comm;
+        Timers timers{{"Pre", "PreConn", "PostConn", "Register", "Update",
+                       "Post", "SetInputs", "PredictInputs", "ResetStates",
+                       "AdvanceStates", "CalculateOutputs"}};
+
+        Module* operator->() const { return instance.get(); }
+
+        template <class Action>
+        auto timed(const char* name, Action action, bool increment = false)
+        {
+            timers.tick(name, increment);
+            if constexpr (std::is_void_v<std::invoke_result_t<Action>>) {
+                action();
+                timers.tock(name);
+            } else {
+                auto result = action();
+                timers.tock(name);
+                return result;
+            }
+        }
+    };
+
     //! World communicator instance
     MPI_Comm m_comm;
-    //! List of modules active in this overset simulation
-    std::vector<std::unique_ptr<Module>> m_modules;
+    //! Active modules and their driver-side runtime data
+    std::vector<RegisteredModule> m_modules;
     //! Flag indicating whether a background-only CFD module is active
     bool m_has_background_only{false};
     //! Flag indicating whether a generic CFD module is active
@@ -61,27 +89,31 @@ public:
     Simulation(MPI_Comm comm);
     ~Simulation();
 
-    void register_module(std::unique_ptr<Module> module)
+    //! The caller keeps the module communicator alive until module deletion.
+    void register_module(MPI_Comm comm, std::unique_ptr<Module> module)
     {
         if (!module) throw std::invalid_argument("Cannot register a null module");
-        m_modules.emplace_back(std::move(module));
+        if (comm == MPI_COMM_NULL)
+            throw std::invalid_argument("Cannot register a module with MPI_COMM_NULL");
+        m_modules.push_back({std::move(module), comm});
     }
 
     //! Register a module (legacy - passes Tioga instance)
     template <class ModuleType, class... Args>
-    void register_module(Args... args)
+    void register_module(MPI_Comm comm, Args&&... args)
     {
-        m_modules.emplace_back(
+        register_module(
+            comm,
             std::make_unique<ModuleType>(std::forward<Args>(args)..., m_tg));
     }
 
     //! Register a module without Tioga (for standalone modules like FMB)
     template <class ModuleType, class... Args>
-    ModuleType& register_module_no_tioga(Args&&... args)
+    ModuleType& register_module_no_tioga(MPI_Comm comm, Args&&... args)
     {
         auto module = std::make_unique<ModuleType>(std::forward<Args>(args)...);
         auto& result = *module;
-        m_modules.emplace_back(std::move(module));
+        register_module(comm, std::move(module));
         return result;
     }
 
@@ -89,8 +121,9 @@ public:
     void delete_modules()
     {
         for (auto& module : m_modules) {
-            module.reset();
+            module.instance.reset();
         }
+        m_modules.clear();
     }
 
     //! Initialize all modules

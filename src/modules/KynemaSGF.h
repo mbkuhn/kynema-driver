@@ -32,7 +32,6 @@ public:
     int overset_update_interval() override;
     int time_index() override;
     std::string identifier() override { return "Kynema-SGF"; }
-    MPI_Comm comm() override { return m_comm; }
 
 protected:
     void init_prolog(bool multi_module_mode = true) override;
@@ -55,7 +54,6 @@ protected:
     void register_solution() override;
     void update_solution() override;
     void dump_simulation_time() override {};
-    MPI_Comm m_comm;
 };
 
 } // namespace driver

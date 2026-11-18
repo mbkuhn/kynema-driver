@@ -8,7 +8,7 @@ namespace driver {
 
 Prescribed::Prescribed(const YAML::Node& input, KynemaFMB& target)
     : m_target(target)
-    , m_dt(target.call_get_timestep_size())
+    , m_dt(target.get_timestep_size())
     , m_forces(target.num_nodes())
 {
     const auto loads = input["loads"];

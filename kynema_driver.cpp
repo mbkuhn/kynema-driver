@@ -305,7 +305,8 @@ int run(int argc, char** argv, int size, int rank)
                 output << config;
             }
             sim.register_module<driver::KynemaUGF>(
-                static_cast<int>(i + 1), ugf_comms[i], config, logfile,
+                ugf_comms[i], static_cast<int>(i + 1), ugf_comms[i], config,
+                logfile,
                 node["ugf_vars"]
                     ? node["ugf_vars"].as<std::vector<std::string>>()
                     : std::vector<std::string>{});
@@ -322,23 +323,25 @@ int run(int argc, char** argv, int size, int rank)
                     ? node["sgf_node_vars"].as<std::vector<std::string>>()
                     : std::vector<std::string>{};
             sim.register_module<driver::KynemaSGF>(
-                cvars, nvars);
+                sgf_comm, cvars, nvars);
         }
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_FMB
         for (size_t i = 0; i < fmb.size(); ++i) {
             if (fmb_comms[i] != MPI_COMM_NULL) {
+                int comm_rank = 0;
+                MPI_Comm_rank(fmb_comms[i], &comm_rank);
                 auto module = std::make_unique<driver::KynemaFMB>(
-                    YAML::LoadFile(fmb[i].as<std::string>()), fmb_comms[i],
-                    static_cast<int>(i + 1));
+                    YAML::LoadFile(fmb[i].as<std::string>()),
+                    static_cast<int>(i + 1), comm_rank == 0);
                 // Providers must set their outputs before FMB consumes them.
                 if (!prescribed_inputs[i].IsNull()) {
                     if (nonlinear < 2)
                         throw std::runtime_error("Prescribed FMB loads require at least two nonlinear iterations");
                     sim.register_module_no_tioga<driver::Prescribed>(
-                        prescribed_inputs[i], *module);
+                        fmb_comms[i], prescribed_inputs[i], *module);
                 }
-                sim.register_module(std::move(module));
+                sim.register_module(fmb_comms[i], std::move(module));
             }
         }
 #endif

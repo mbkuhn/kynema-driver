@@ -13,7 +13,6 @@ public:
     bool is_fixed_timestep_size() override { return true; }
     int time_index() override { return m_step; }
     std::string identifier() override { return "Prescribed-" + m_target.identifier(); }
-    MPI_Comm comm() override { return m_target.comm(); }
 
 protected:
     void init_prolog(bool) override {}

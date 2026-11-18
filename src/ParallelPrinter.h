@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <ostream>
+#include <sstream>
 #include "mpi.h"
 
 namespace driver {

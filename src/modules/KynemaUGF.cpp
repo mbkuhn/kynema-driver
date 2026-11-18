@@ -36,7 +36,7 @@ KynemaUGF::KynemaUGF(
     const std::string& logfile,
     const std::vector<std::string>& fnames,
     TIOGA::tioga& tg)
-    : m_doc(inp_yaml), m_sim(m_doc), m_fnames(fnames), m_id(id), m_comm(comm)
+    : m_doc(inp_yaml), m_sim(m_doc), m_fnames(fnames), m_id(id)
 {
     auto& env = sierra::kynema_ugf::KynemaUGFEnv::self();
     env.parallelCommunicator_ = comm;

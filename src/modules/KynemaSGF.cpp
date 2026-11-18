@@ -48,7 +48,6 @@ KynemaSGF::KynemaSGF(
     , m_tgiface(m_incflo.sim(), tg)
     , m_cell_vars(cell_vars)
     , m_node_vars(node_vars)
-    , m_comm(amrex::ParallelContext::CommunicatorSub())
 {}
 
 KynemaSGF::~KynemaSGF() = default;

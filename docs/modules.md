@@ -1,9 +1,12 @@
 # Module selection and execution
 
 The driver coordinator is `driver::Simulation` in `src/Simulation.h`.
-The shared module interface is `driver::Module` in `src/Module.h`.
-Register modules through `register_module()` (Tioga adapters) or
-`register_module_no_tioga()` (native FMB). Initialization hooks use
+The shared module interface is `driver::Module` in `src/Module.h`. It does not
+depend on MPI. Pass a communicator separately when registering a module;
+`Simulation` keeps it and the module's timing data alongside the module.
+Use `register_module()` to register a constructed module or construct a Tioga
+adapter, and `register_module_no_tioga()` to construct a module without Tioga.
+Initialization hooks use
 `prepare_module_prolog()` and `prepare_module_epilog()`.
 Every module implements `reset_states()`, called before advancing subsequent
 nonlinear iterations. SGF and UGF currently keep their existing state handling
@@ -54,9 +57,10 @@ A YAML file selecting a module disabled in the build is an error.
 FMB's `GeneralStructureInterface` implements `driver::Module` directly;
 the driver header `src/modules/KynemaFMB.h` is only a type alias, not a
 timestepping wrapper. FMB always builds this interface, including for standalone
-use, and requires MPI. Its build embeds the shared header-only interface in the
-installation without a dependency on the driver library.
-`KYNEMA_FMB_DRIVER_MODULE_DIR` only locates these headers; it defaults to the
+use, without a direct MPI dependency. A parallel NetCDF or HDF5 installation
+may still bring in MPI; standalone FMB can use the serial versions. FMB installs
+the shared interface header without a dependency on the driver library.
+`KYNEMA_FMB_DRIVER_MODULE_DIR` only locates this header; it defaults to the
 sibling `kynema-driver/src` directory and is not an integration toggle.
 SGF and UGF still use adapters pending refactoring in their respective repositories.
 
@@ -98,7 +102,8 @@ iteration and consumes the prescribed values on subsequent iterations.
 
 FMB's `simulation.output_file` enables CSV output of every node's position and
 quaternion, with the completed step and time, once per finalized timestep on
-the instance's rank zero. Give separate output paths to separate FMB instances.
+the instance's rank zero. The driver selects that rank and passes FMB a
+plain output flag. Give separate output paths to separate FMB instances.
 
 The `fmb-6dof-modular` regressions launch `kynema_driver` using these YAML inputs
 and compare all output rows with `reference.csv` at absolute tolerance `1e-10`.

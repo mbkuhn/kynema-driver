@@ -59,7 +59,6 @@ public:
     {
         return ("Kynema-UGF-" + std::to_string(m_id));
     }
-    MPI_Comm comm() override { return m_comm; }
     int get_ncomps() override { return m_ncomps; }
 
 protected:
@@ -83,7 +82,6 @@ protected:
     void register_solution() override;
     void update_solution() override;
     void dump_simulation_time() override;
-    MPI_Comm m_comm;
 };
 
 } // namespace driver

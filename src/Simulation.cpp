@@ -62,7 +62,7 @@ void Simulation::initialize()
     int local_cfd_modules = 0;
     for (auto& module : m_modules) {
         int rank = 0;
-        MPI_Comm_rank(module->comm(), &rank);
+        MPI_Comm_rank(module.comm, &rank);
         if (rank == 0) {
             ++local_modules;
             if (module->is_cfd()) ++local_cfd_modules;
@@ -74,19 +74,19 @@ void Simulation::initialize()
     if (global_modules == 0) throw std::runtime_error("No modules registered");
     m_use_overset = global_cfd_modules > 1;
 
-    for (auto& module : m_modules) module->call_init_prolog(m_use_overset);
+    for (auto& module : m_modules) module->init_prolog(m_use_overset);
 
     determine_overset_interval();
 
     for (auto& module : m_modules) {
-        module->call_init_epilog();
-        module->call_prepare_module_prolog();
+        module->init_epilog();
+        module->prepare_module_prolog();
     }
 
     perform_overset_connectivity();
     exchange_solution();
 
-    for (auto& module : m_modules) module->call_prepare_module_epilog();
+    for (auto& module : m_modules) module->prepare_module_epilog();
 
     int min_step = std::numeric_limits<int>::max();
     int max_step = std::numeric_limits<int>::min();
@@ -114,7 +114,8 @@ void Simulation::perform_overset_connectivity()
 {
     if (!m_use_overset) return;
     for (auto& module : m_modules)
-        if (module->is_cfd()) module->call_pre_overset_conn_work();
+        if (module->is_cfd())
+            module.timed("PreConn", [&] { module->pre_overset_conn_work(); });
 
     m_timers_tg.tick("Connectivity");
     if (m_has_background_only) m_tg.preprocess_amr_data();
@@ -130,17 +131,19 @@ void Simulation::perform_overset_connectivity()
     m_timers_tg.tock("Connectivity");
 
     for (auto& module : m_modules)
-        if (module->is_cfd()) module->call_post_overset_conn_work();
+        if (module->is_cfd())
+            module.timed("PostConn", [&] { module->post_overset_conn_work(); });
 }
 
 void Simulation::exchange_solution(bool increment_time)
 {
     // SGF and UGF need their second pre-advance stage after connectivity.
     for (auto& module : m_modules)
-        if (module->is_cfd()) module->call_prepare_solution_exchange();
+        if (module->is_cfd()) module->prepare_solution_exchange();
     if (!m_use_overset) return;
     for (auto& module : m_modules)
-        if (module->is_cfd()) module->call_register_solution();
+        if (module->is_cfd())
+            module.timed("Register", [&] { module->register_solution(); });
 
     m_timers_tg.tick("SolExchange", increment_time);
     if (m_has_background_only) {
@@ -159,7 +162,8 @@ void Simulation::exchange_solution(bool increment_time)
     m_timers_tg.tock("SolExchange");
 
     for (auto& module : m_modules)
-        if (module->is_cfd()) module->call_update_solution();
+        if (module->is_cfd())
+            module.timed("Update", [&] { module->update_solution(); });
 }
 
 void Simulation::run_timesteps(
@@ -182,7 +186,9 @@ void Simulation::run_timesteps(
     int nt = tstart;
     auto current_time = [&]() {
         double result = std::numeric_limits<double>::max();
-        for (auto& module : m_modules) result = std::min(result, module->call_get_time());
+        for (auto& module : m_modules)
+            result = std::min(
+                result, module.timed("Pre", [&] { return module->get_time(); }));
         MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_DOUBLE, MPI_MIN, m_comm);
         return result;
     };
@@ -201,7 +207,9 @@ void Simulation::run_timesteps(
             bool increment_timer = inonlin > 0 ? true : false;
 
             for (auto& module : m_modules) {
-                module->call_set_inputs(inonlin, increment_timer);
+                module.timed(
+                    "SetInputs", [&] { module->set_inputs(inonlin); },
+                    increment_timer);
             }
 
             // Compute and communicate timestep (first iteration only, adaptive
@@ -209,15 +217,20 @@ void Simulation::run_timesteps(
             if (inonlin < 1 && !m_fixed_dt) {
                 double dt{1e8};
                 for (auto& module : m_modules) {
-                    dt = std::min(dt, module->call_get_timestep_size());
+                    const double module_dt = module.timed(
+                        "Pre", [&] { return module->get_timestep_size(); });
+                    dt = std::min(dt, module_dt);
                 }
                 MPI_Allreduce(
                     MPI_IN_PLACE, &dt, 1, MPI_DOUBLE, MPI_MIN, m_comm);
-                for (auto& module : m_modules) module->call_set_timestep_size(dt);
+                for (auto& module : m_modules)
+                    module.timed("Pre", [&] { module->set_timestep_size(dt); });
             }
 
             for (auto& module : m_modules) {
-                module->call_predict_inputs(inonlin, increment_timer);
+                module.timed(
+                    "PredictInputs", [&] { module->predict_inputs(inonlin); },
+                    increment_timer);
             }
 
             // Overset connectivity update (external to modules)
@@ -228,24 +241,38 @@ void Simulation::run_timesteps(
 
             if (inonlin > 0) {
                 for (auto& module : m_modules)
-                    module->call_reset_states(increment_timer);
+                    module.timed(
+                        "ResetStates", [&] { module->reset_states(); },
+                        increment_timer);
             }
 
             for (auto& module : m_modules) {
-                module->call_advance_states(inonlin, increment_timer);
+                module.timed(
+                    "AdvanceStates", [&] { module->advance_states(inonlin); },
+                    increment_timer);
             }
 
             for (auto& module : m_modules) {
-                module->call_calculate_outputs(inonlin, increment_timer);
+                module.timed(
+                    "CalculateOutputs",
+                    [&] { module->calculate_outputs(inonlin); },
+                    increment_timer);
             }
         }
 
         if (add_pic_its > 0) {
             exchange_solution(true);
-            for (auto& module : m_modules)
-                module->call_additional_picard_iterations(add_pic_its);
+            for (auto& module : m_modules) {
+                const char* name = "AdditionalPicardIterations";
+                const auto& names = module.timers.m_names;
+                if (std::find(names.begin(), names.end(), name) == names.end())
+                    module.timers.addTimer(name);
+                module.timed(
+                    name, [&] { module->additional_picard_iterations(add_pic_its); });
+            }
         }
-        for (auto& module : m_modules) module->call_finalize_time_step();
+        for (auto& module : m_modules)
+            module.timed("Post", [&] { module->finalize_time_step(); });
 
         MPI_Barrier(m_comm);
 
@@ -265,7 +292,7 @@ void Simulation::run_timesteps(
         time_check = max_time > 0. ? time < max_time : true;
         do_step = step_check && time_check;
     }
-    for (auto& module : m_modules) module->call_dump_simulation_time();
+    for (auto& module : m_modules) module->dump_simulation_time();
     m_last_timestep = nt - 1;
 }
 
@@ -297,18 +324,18 @@ void Simulation::print_timing(const int nt)
         "Tioga", nt, m_comm, m_printer.io_rank());
     m_printer.timing_to_file(timing_detail);
 
-    // cfd module-specific timing
+    // Module-specific timing
     for (auto& module : m_modules) {
-        ParallelPrinter printer(module->comm());
+        ParallelPrinter printer(module.comm);
 
         // summary timings
-        std::string timings_summary = module->m_timers.get_timings_summary(
-            module->identifier(), nt, module->comm(), printer.io_rank());
+        std::string timings_summary = module.timers.get_timings_summary(
+            module->identifier(), nt, module.comm, printer.io_rank());
         printer.echo(timings_summary);
 
         // detailed timings
-        std::string timings_detail = module->m_timers.get_timings_detail(
-            module->identifier(), nt, module->comm(), printer.io_rank());
+        std::string timings_detail = module.timers.get_timings_detail(
+            module->identifier(), nt, module.comm, printer.io_rank());
         printer.timing_to_file(timings_detail);
     }
 
