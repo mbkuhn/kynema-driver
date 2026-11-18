@@ -27,7 +27,7 @@ endif()
 target_include_directories(${KYNEMA_DRIVER_LIB_NAME} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
-target_link_libraries(${KYNEMA_DRIVER_LIB_NAME} PUBLIC yaml-cpp tioga)
+target_link_libraries(${KYNEMA_DRIVER_LIB_NAME} PUBLIC yaml-cpp tioga nlohmann_json::nlohmann_json)
 
 target_link_libraries(${KYNEMA_DRIVER_LIB_NAME} PUBLIC $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>)
 target_link_libraries(${KYNEMA_DRIVER_LIB_NAME} PUBLIC $<$<BOOL:${MPI_Fortran_FOUND}>:MPI::MPI_Fortran>)

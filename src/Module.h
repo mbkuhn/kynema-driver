@@ -2,7 +2,9 @@
 #define DRIVER_MODULE_H
 
 #include <cstddef>
+#include <stdexcept>
 #include <string>
+#include <nlohmann/json.hpp>
 
 namespace driver {
 
@@ -40,6 +42,16 @@ public:
     virtual void reset_states() = 0;
     virtual void advance_states(std::size_t inonlin) = 0;
     virtual void calculate_outputs(std::size_t inonlin) = 0;
+
+    virtual void receive_inputs(const nlohmann::json&)
+    {
+        throw std::logic_error("Module does not accept JSON inputs");
+    }
+
+    virtual nlohmann::json outputs() const
+    {
+        throw std::logic_error("Module does not publish JSON outputs");
+    }
 };
 
 } // namespace driver

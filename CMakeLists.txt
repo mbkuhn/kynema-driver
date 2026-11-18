@@ -63,6 +63,7 @@ if(KYNEMA_DRIVER_ENABLE_FMB)
 endif()
 find_package(TIOGA REQUIRED)
 find_package(YAML-CPP 0.6.2 REQUIRED)
+find_package(nlohmann_json 3.11 CONFIG REQUIRED)
 find_package(MPI REQUIRED)
 
 # General information about machine, compiler, and build type

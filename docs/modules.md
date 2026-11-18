@@ -67,6 +67,7 @@ the shared interface header without a dependency on the driver library.
 `KYNEMA_FMB_DRIVER_MODULE_DIR` only locates this header; it defaults to the
 sibling `kynema-driver/src` directory and is not an integration toggle.
 SGF and UGF still use adapters pending refactoring in their respective repositories.
+Both FMB and the driver use `nlohmann_json` for the shared JSON interface.
 
 Modules execute in the same timestep loop. Overset hooks are optional no-ops in
 `Module`; only CFD modules opt in with `is_cfd()` and implement them.
@@ -102,7 +103,12 @@ pairs are errors. Only one prescribed module may target each FMB instance.
 It runs on its target's communicator, so `--fmb` and `fmb_procs` also determine
 its ranks; there is no separate rank allocation or MPI transfer.
 Use at least two nonlinear iterations: FMB predicts loads on the first
-iteration and consumes the prescribed values on subsequent iterations.
+iteration. After a module calculates its outputs, the driver routes its JSON
+`outputs()` to the connected module's `receive_inputs()` for the next iteration.
+The prescribed module publishes version 1 with a `nodal_forces` field containing
+one six-component load per node in node order. FMB's JSON output contains
+`version` and `nodal_poses`, one `[x, y, z, qw, qx, qy, qz]` row per node.
+Nothing currently consumes FMB's JSON output. CFD overset exchange is unchanged.
 
 FMB's `simulation.output_file` enables CSV output of every node's position and
 quaternion, with the completed step and time, once per finalized timestep on

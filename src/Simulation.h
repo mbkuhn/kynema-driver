@@ -23,6 +23,7 @@ private:
     {
         std::unique_ptr<Module> instance;
         MPI_Comm comm;
+        const Module* input_source{nullptr};
         Timers timers{{"Pre", "PreConn", "PostConn", "Register", "Update",
                        "Post", "SetInputs", "PredictInputs", "ResetStates",
                        "AdvanceStates", "CalculateOutputs"}};
@@ -128,6 +129,9 @@ public:
 
     //! Initialize all modules
     void initialize();
+
+    //! Connect a JSON output to a module on the same ranks.
+    void connect_modules(const Module& source, const Module& target);
 
     //! Determine field, fringe, hole information
     void perform_overset_connectivity();

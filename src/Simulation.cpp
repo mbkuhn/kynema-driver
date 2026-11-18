@@ -22,6 +22,27 @@ Simulation::Simulation(MPI_Comm comm)
 
 Simulation::~Simulation() = default;
 
+void Simulation::connect_modules(const Module& source, const Module& target)
+{
+    const auto find_module = [&](const Module& instance) {
+        return std::find_if(
+            m_modules.begin(), m_modules.end(), [&](const auto& module) {
+                return module.instance.get() == &instance;
+            });
+    };
+    const auto from = find_module(source);
+    const auto to = find_module(target);
+    if (m_initialized || from == m_modules.end() || to == m_modules.end())
+        throw std::invalid_argument("Connect registered modules before initialization");
+    if (to->input_source)
+        throw std::invalid_argument("Module already has a JSON input source");
+    int comparison = MPI_UNEQUAL;
+    MPI_Comm_compare(from->comm, to->comm, &comparison);
+    if (comparison != MPI_IDENT && comparison != MPI_CONGRUENT)
+        throw std::invalid_argument("JSON exchange requires co-located modules");
+    to->input_source = &source;
+}
+
 void Simulation::check_module_types()
 {
     bool flag[2] = {false, false};
@@ -257,6 +278,13 @@ void Simulation::run_timesteps(
                     "CalculateOutputs",
                     [&] { module->calculate_outputs(inonlin); },
                     increment_timer);
+            }
+            // The next nonlinear iteration consumes the outputs from this one.
+            if (inonlin + 1 < static_cast<size_t>(nonlinear_its)) {
+                for (auto& module : m_modules) {
+                    if (module.input_source)
+                        module->receive_inputs(module.input_source->outputs());
+                }
             }
         }
 

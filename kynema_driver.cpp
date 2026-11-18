@@ -334,14 +334,16 @@ int run(int argc, char** argv, int size, int rank)
                 auto module = std::make_unique<driver::KynemaFMB>(
                     YAML::LoadFile(fmb[i].as<std::string>()),
                     static_cast<int>(i + 1), comm_rank == 0);
-                // Providers must set their outputs before FMB consumes them.
+                auto& target = *module;
+                sim.register_module(fmb_comms[i], std::move(module));
                 if (!prescribed_inputs[i].IsNull()) {
                     if (nonlinear < 2)
                         throw std::runtime_error("Prescribed FMB loads require at least two nonlinear iterations");
-                    sim.register_module_no_tioga<driver::Prescribed>(
-                        fmb_comms[i], prescribed_inputs[i], *module);
+                    auto& source = sim.register_module_no_tioga<driver::Prescribed>(
+                        fmb_comms[i], prescribed_inputs[i], target.identifier(),
+                        target.get_timestep_size(), target.num_nodes());
+                    sim.connect_modules(source, target);
                 }
-                sim.register_module(fmb_comms[i], std::move(module));
             }
         }
 #endif

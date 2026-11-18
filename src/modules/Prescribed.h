@@ -1,7 +1,8 @@
 #ifndef DRIVER_PRESCRIBED_H
 #define DRIVER_PRESCRIBED_H
 
-#include "KynemaFMB.h"
+#include "../Module.h"
+#include "interfaces/generalized/coupling_data.hpp"
 #include <yaml-cpp/yaml.h>
 
 namespace driver {
@@ -9,10 +10,13 @@ namespace driver {
 class Prescribed : public Module
 {
 public:
-    Prescribed(const YAML::Node& input, KynemaFMB& target);
+    Prescribed(
+        const YAML::Node& input, const std::string& target_name,
+        double dt, size_t num_nodes);
     bool is_fixed_timestep_size() override { return true; }
     int time_index() override { return m_step; }
-    std::string identifier() override { return "Prescribed-" + m_target.identifier(); }
+    std::string identifier() override { return m_name; }
+    nlohmann::json outputs() const override { return m_outputs; }
 
 protected:
     void init_prolog(bool) override {}
@@ -22,11 +26,11 @@ protected:
     double get_time() override { return m_time; }
     double get_timestep_size() override { return m_dt; }
     void set_timestep_size(double dt) override;
-    void set_inputs(size_t) override;
+    void set_inputs(size_t) override {}
     void predict_inputs(size_t) override {}
     void reset_states() override {}
     void advance_states(size_t) override {}
-    void calculate_outputs(size_t) override {}
+    void calculate_outputs(size_t) override;
     void additional_picard_iterations(int) override {}
     void finalize_time_step() override;
     void dump_simulation_time() override {}
@@ -39,12 +43,12 @@ private:
         std::array<double, 6> force;
     };
 
-    KynemaFMB& m_target;
+    std::string m_name;
     double m_dt;
     double m_time{0.};
     int m_step{0};
     std::vector<Load> m_loads;
-    std::vector<std::array<double, 6>> m_forces;
+    kynema_fmb::interfaces::StructuralInputs m_outputs;
 };
 
 } // namespace driver

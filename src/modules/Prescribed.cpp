@@ -6,10 +6,12 @@
 
 namespace driver {
 
-Prescribed::Prescribed(const YAML::Node& input, KynemaFMB& target)
-    : m_target(target)
-    , m_dt(target.get_timestep_size())
-    , m_forces(target.num_nodes())
+Prescribed::Prescribed(
+    const YAML::Node& input, const std::string& target_name,
+    double dt, size_t num_nodes)
+    : m_name("Prescribed-" + target_name)
+    , m_dt(dt)
+    , m_outputs{std::vector<std::array<double, 6>>(num_nodes)}
 {
     const auto loads = input["loads"];
     if (!loads || !loads.IsSequence() || loads.size() == 0)
@@ -18,7 +20,7 @@ Prescribed::Prescribed(const YAML::Node& input, KynemaFMB& target)
         const int node = entry["node"].as<int>();
         const int step = entry["start_step"].as<int>();
         const auto force = entry["force"].as<std::array<double, 6>>();
-        if (node < 0 || static_cast<size_t>(node) >= target.num_nodes())
+        if (node < 0 || static_cast<size_t>(node) >= num_nodes)
             throw std::runtime_error("Prescribed load node is out of range");
         if (step < 1)
             throw std::runtime_error("Prescribed start_step must be positive (one-based)");
@@ -35,14 +37,14 @@ Prescribed::Prescribed(const YAML::Node& input, KynemaFMB& target)
     });
 }
 
-void Prescribed::set_inputs(size_t)
+void Prescribed::calculate_outputs(size_t)
 {
-    std::fill(m_forces.begin(), m_forces.end(), std::array<double, 6>{});
+    auto& forces = m_outputs.nodal_forces;
+    std::fill(forces.begin(), forces.end(), std::array<double, 6>{});
     for (const auto& load : m_loads) {
         if (load.start_step > m_step + 1) break;
-        m_forces[load.node] = load.force;
+        forces[load.node] = load.force;
     }
-    m_target.set_forces(m_forces);
 }
 
 void Prescribed::set_timestep_size(double dt)
