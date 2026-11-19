@@ -72,6 +72,8 @@ void Simulation::prepare_modules()
             }
         }
 
+        // JSON arrives after prepare() each round. A module that needs it must
+        // not report complete: the driver will not call its prepare() again.
         for (auto& module : m_modules) {
             if (!module.initialization_source || module.initialization_data_received)
                 continue;
@@ -312,6 +314,8 @@ void Simulation::run_timesteps(
             // Couple modules via solution exchange (external to modules)
             exchange_solution(increment_timer);
 
+            // A native reset must restore the prior time state without
+            // discarding the inputs or overset data staged for this iteration.
             if (inonlin > 0) {
                 for (auto& module : m_modules)
                     module.timed(

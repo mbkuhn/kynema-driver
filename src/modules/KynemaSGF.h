@@ -15,6 +15,8 @@ namespace driver {
 class KynemaSGFInterface
 {
 private:
+    // Keep this declaration order if moved into SGF: the Tioga bridge borrows
+    // m_incflo.sim() and must be destroyed before m_incflo.
     incflo m_incflo;
     kynema_sgf::SGFTiogaIface m_tgiface;
     std::vector<std::string> m_cell_vars;

@@ -32,7 +32,9 @@ void KynemaUGFInterface::finalize()
 }
 
 // Let UGF own communicator, log, and Tioga setup rather than mutating its
-// environment singleton and TiogaRef from the driver.
+// environment singleton and TiogaRef from the driver. Instances currently
+// occupy disjoint rank sets; overlapping instances would need per-instance
+// context so one constructor cannot overwrite another instance's settings.
 KynemaUGFInterface::KynemaUGFInterface(
     int id,
     stk::ParallelMachine comm,

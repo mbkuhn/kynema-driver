@@ -240,6 +240,8 @@ int run(int argc, char** argv, int size, int rank)
     const bool has_fmb = participating(fmb_comms);
     (void)has_ugf;
     (void)has_fmb;
+    // AMReX uses this stream through SGF finalization. If runtime ownership
+    // moves into SGF, move the stream with it, not into a module instance.
     std::ofstream out;
 
     {
@@ -270,6 +272,7 @@ int run(int argc, char** argv, int size, int rank)
         }
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_UGF
+        // UGF initializes Kokkos before FMB can reuse it on overlapping ranks.
         if (has_ugf) driver::KynemaUGFInterface::initialize();
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_FMB
@@ -350,6 +353,8 @@ int run(int argc, char** argv, int size, int rank)
 #endif
         sim.initialize();
         sim.run_timesteps(picard, nonlinear, steps, max_time);
+        // Destroy solver instances before finalizing their runtimes or freeing
+        // their communicators.
         sim.delete_modules();
     }
 #ifdef KYNEMA_DRIVER_ENABLE_SGF
