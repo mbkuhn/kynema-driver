@@ -2,7 +2,6 @@
 #define DRIVER_MODULE_H
 
 #include <cstddef>
-#include <stdexcept>
 #include <string>
 #include <nlohmann/json.hpp>
 
@@ -34,12 +33,9 @@ public:
     // Return the current stage unchanged while waiting for a dependency.
     virtual PreparationStage prepare(const PreparationContext&) = 0;
 
-    // A non-null initialization payload is sent once per connection.
+    // Null means no payload; the first non-null initialization payload is sent once.
     virtual nlohmann::json initialization_data() const { return nullptr; }
-    virtual void receive_initialization_data(const nlohmann::json&)
-    {
-        throw std::logic_error("Module does not accept initialization data");
-    }
+    virtual void receive_initialization_data(const nlohmann::json&) {}
 
     virtual double get_time() = 0;
     virtual double get_timestep_size() = 0;
@@ -59,15 +55,8 @@ public:
     virtual void advance_states(std::size_t inonlin) = 0;
     virtual void calculate_outputs(std::size_t inonlin) = 0;
 
-    virtual void receive_inputs(const nlohmann::json&)
-    {
-        throw std::logic_error("Module does not accept JSON inputs");
-    }
-
-    virtual nlohmann::json outputs() const
-    {
-        throw std::logic_error("Module does not publish JSON outputs");
-    }
+    virtual void receive_inputs(const nlohmann::json&) {}
+    virtual nlohmann::json outputs() const { return nullptr; }
 };
 
 } // namespace driver

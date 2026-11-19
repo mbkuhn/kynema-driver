@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <fstream>
 #include <limits>
+#include <stdexcept>
 
 namespace driver {
 
@@ -333,8 +334,9 @@ void Simulation::run_timesteps(
             // The next nonlinear iteration consumes the outputs from this one.
             if (inonlin + 1 < static_cast<size_t>(nonlinear_its)) {
                 for (auto& module : m_modules) {
-                    if (module.input_source)
-                        module->receive_inputs(module.input_source->outputs());
+                    if (!module.input_source) continue;
+                    const auto data = module.input_source->outputs();
+                    if (!data.is_null()) module->receive_inputs(data);
                 }
             }
         }

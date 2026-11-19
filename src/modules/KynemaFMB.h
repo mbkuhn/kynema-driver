@@ -10,9 +10,6 @@ template <>
 struct ModuleAdapterTraits<kynema_fmb::interfaces::GeneralStructureInterface>
 {
     static constexpr bool fixed_timestep = true;
-    static constexpr bool publishes_initialization_data = true;
-    static constexpr bool accepts_initialization_data = false;
-    static constexpr bool accepts_inputs = true;
 
     static PreparationStage prepare(
         kynema_fmb::interfaces::GeneralStructureInterface& structure,

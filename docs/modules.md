@@ -64,8 +64,12 @@ A YAML file selecting a module disabled in the build is an error.
 FMB's `GeneralStructureInterface` builds without a driver checkout or headers.
 The driver-side [ModuleAdapter](../src/modules/ModuleAdapter.h) template implements
 `driver::Module` for native modules that expose the matching lifecycle methods.
-Its traits select which optional JSON hooks to forward and map native preparation
-onto the driver's preparation stages. [KynemaFMB.h](../src/modules/KynemaFMB.h)
+Its traits select the timestep policy and map native preparation onto the
+driver's preparation stages. The adapter forwards the same JSON hooks for
+every native module. A module can return JSON `null` to send nothing or leave
+a receive hook empty to ignore data it doesn't use. The driver skips null
+payloads during both initialization and timestepping.
+[KynemaFMB.h](../src/modules/KynemaFMB.h)
 declares a fixed timestep and reports completion when FMB's `prepare()` returns.
 FMB has no direct MPI dependency. A parallel
 NetCDF or HDF5 installation may still bring in MPI; standalone FMB can use the

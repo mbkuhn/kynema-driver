@@ -17,10 +17,12 @@ public:
     nlohmann::json outputs() const;
 
     bool prepare();
+    nlohmann::json initialization_data() const { return nullptr; }
     void receive_initialization_data(const nlohmann::json& data)
     {
         m_initialization = data;
     }
+    void receive_inputs(const nlohmann::json&) {}
     double get_time() const { return m_time; }
     double get_timestep_size() const { return m_dt; }
     void set_timestep_size(double dt);
@@ -57,9 +59,6 @@ template <>
 struct ModuleAdapterTraits<PrescribedSource>
 {
     static constexpr bool fixed_timestep = true;
-    static constexpr bool publishes_initialization_data = false;
-    static constexpr bool accepts_initialization_data = true;
-    static constexpr bool accepts_inputs = false;
 
     static PreparationStage
     prepare(PrescribedSource& source, const PreparationContext& context)
