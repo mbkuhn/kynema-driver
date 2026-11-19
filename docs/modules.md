@@ -61,14 +61,14 @@ OFF to build without that module's driver dependency, or enable FMB and
 provide `KynemaFMB_DIR` to use it. Tioga and MPI remain driver dependencies.
 A YAML file selecting a module disabled in the build is an error.
 
-FMB's `GeneralStructureInterface` implements `driver::Module` directly;
-the driver header `src/modules/KynemaFMB.h` is only a type alias, not a
-timestepping wrapper. FMB always builds this interface, including for standalone
-use, without a direct MPI dependency. A parallel NetCDF or HDF5 installation
-may still bring in MPI; standalone FMB can use the serial versions. FMB installs
-the shared interface header without a dependency on the driver library.
-`KYNEMA_FMB_DRIVER_MODULE_DIR` only locates this header; it defaults to the
-sibling `kynema-driver/src` directory and is not an integration toggle.
+FMB's `GeneralStructureInterface` builds without a driver checkout or headers.
+The driver-side [ModuleAdapter](../src/modules/ModuleAdapter.h) template implements
+`driver::Module` for native solvers that expose the matching lifecycle and JSON
+methods. [KynemaFMB.h](../src/modules/KynemaFMB.h) specializes only the fixed-step
+policy and preparation: it calls FMB's native `prepare()` and reports completion.
+FMB has no direct MPI dependency. A parallel
+NetCDF or HDF5 installation may still bring in MPI; standalone FMB can use the
+serial versions.
 SGF and UGF still use adapters pending refactoring in their respective repositories.
 Both FMB and the driver use `nlohmann_json` for the shared JSON interface.
 
