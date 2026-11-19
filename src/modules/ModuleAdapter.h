@@ -11,7 +11,7 @@ template <typename NativeModule>
 struct ModuleAdapterTraits;
 
 template <typename NativeModule>
-class ModuleAdapter final : public Module
+class ModuleAdapter : public Module
 {
     using Traits = ModuleAdapterTraits<NativeModule>;
 
@@ -41,7 +41,10 @@ public:
     nlohmann::json outputs() const override { return m_native.outputs(); }
 
     std::string identifier() override { return m_native.identifier(); }
-    bool is_fixed_timestep_size() override { return Traits::fixed_timestep; }
+    bool is_fixed_timestep_size() override
+    {
+        return Traits::is_fixed_timestep_size(m_native);
+    }
     int time_index() override { return m_native.time_index(); }
     double get_time() override { return m_native.get_time(); }
     double get_timestep_size() override { return m_native.get_timestep_size(); }
@@ -73,6 +76,9 @@ public:
     }
     void finalize_time_step() override { m_native.finalize_time_step(); }
     void dump_simulation_time() override { m_native.dump_simulation_time(); }
+
+protected:
+    NativeModule& native() { return m_native; }
 
 private:
     NativeModule m_native;

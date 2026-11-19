@@ -10,7 +10,8 @@
 
 namespace driver {
 
-void KynemaSGF::initialize(
+// Move process-wide AMReX setup and teardown behind an SGF-owned runtime API.
+void KynemaSGFInterface::initialize(
     MPI_Comm comm, const std::string& inpfile, std::ofstream& out)
 {
     int argc = 2;
@@ -38,9 +39,9 @@ void KynemaSGF::initialize(
     delete[] argv;
 }
 
-void KynemaSGF::finalize() { amrex::Finalize(); }
+void KynemaSGFInterface::finalize() { amrex::Finalize(); }
 
-KynemaSGF::KynemaSGF(
+KynemaSGFInterface::KynemaSGFInterface(
     const std::vector<std::string>& cell_vars,
     const std::vector<std::string>& node_vars,
     TIOGA::tioga& tg)
@@ -50,9 +51,12 @@ KynemaSGF::KynemaSGF(
     , m_node_vars(node_vars)
 {}
 
-KynemaSGF::~KynemaSGF() = default;
+KynemaSGFInterface::~KynemaSGFInterface() = default;
 
-PreparationStage KynemaSGF::prepare(const PreparationContext& context)
+// Expose mesh/module initialization and prepare_for_time_integration through an
+// SGF-owned preparation API. Map mesh and exchange readiness in driver traits
+// so the solver never needs the driver's PreparationContext.
+PreparationStage KynemaSGFInterface::prepare(const PreparationContext& context)
 {
     if (context.stage == PreparationStage::pending) {
         if (context.use_overset) m_incflo.sim().activate_overset();
@@ -62,14 +66,16 @@ PreparationStage KynemaSGF::prepare(const PreparationContext& context)
     }
     if (context.stage == PreparationStage::mesh_ready && context.meshes_ready)
         return PreparationStage::exchange_ready;
-    if (context.stage == PreparationStage::exchange_ready && context.solution_exchanged) {
+    if (context.stage == PreparationStage::exchange_ready &&
+        context.solution_exchanged) {
         m_incflo.prepare_for_time_integration();
         return PreparationStage::complete;
     }
     return context.stage;
 }
 
-void KynemaSGF::set_inputs(size_t inonlin)
+// Expose this first-iteration timestep setup as SGF's native set_inputs().
+void KynemaSGFInterface::set_inputs(std::size_t inonlin)
 {
     if (inonlin < 1) {
         m_incflo.sim().time().new_timestep();
@@ -78,7 +84,9 @@ void KynemaSGF::set_inputs(size_t inonlin)
     }
 }
 
-void KynemaSGF::predict_inputs(size_t inonlin)
+// Expose the two pre-advance phases separately: stage 2 must still run after
+// connectivity, even when Tioga is inactive.
+void KynemaSGFInterface::predict_inputs(std::size_t inonlin)
 {
     if (inonlin < 1) {
         m_incflo.pre_advance_stage1();
@@ -86,7 +94,7 @@ void KynemaSGF::predict_inputs(size_t inonlin)
     }
 }
 
-void KynemaSGF::prepare_solution_exchange()
+void KynemaSGFInterface::prepare_solution_exchange()
 {
     if (m_stage2_pending) {
         m_incflo.pre_advance_stage2();
@@ -94,44 +102,61 @@ void KynemaSGF::prepare_solution_exchange()
     }
 }
 
-double KynemaSGF::get_time() { return m_incflo.time().new_time(); }
+// Expose these accessors on the SGF interface instead of reaching into SimTime.
+double KynemaSGFInterface::get_time() { return m_incflo.time().new_time(); }
 
-double KynemaSGF::get_timestep_size() { return m_incflo.time().delta_t(); }
+double KynemaSGFInterface::get_timestep_size()
+{
+    return m_incflo.time().delta_t();
+}
 
-void KynemaSGF::set_timestep_size(const double dt)
+void KynemaSGFInterface::set_timestep_size(const double dt)
 {
     m_incflo.sim().time().delta_t() = dt;
 }
 
-bool KynemaSGF::is_fixed_timestep_size()
+bool KynemaSGFInterface::is_fixed_timestep_size()
 {
     return (!m_incflo.sim().time().adaptive_timestep());
 }
 
-void KynemaSGF::advance_states(size_t inonlin)
+// Expose do_advance and post_advance_work as advance_states and
+// finalize_time_step on the native interface.
+void KynemaSGFInterface::advance_states(std::size_t inonlin)
 {
     m_incflo.do_advance(inonlin);
 }
 
-void KynemaSGF::finalize_time_step() { m_incflo.post_advance_work(); }
+void KynemaSGFInterface::finalize_time_step() { m_incflo.post_advance_work(); }
 
-void KynemaSGF::pre_overset_conn_work() { m_tgiface.pre_overset_conn_work(); }
+// Keep these forwarding hooks and registered field lists with SGF's
+// optional Tioga bridge when the native interface moves into SGF.
+void KynemaSGFInterface::pre_overset_conn_work()
+{
+    m_tgiface.pre_overset_conn_work();
+}
 
-void KynemaSGF::post_overset_conn_work() { m_tgiface.post_overset_conn_work(); }
+void KynemaSGFInterface::post_overset_conn_work()
+{
+    m_tgiface.post_overset_conn_work();
+}
 
-void KynemaSGF::register_solution()
+void KynemaSGFInterface::register_solution()
 {
     m_tgiface.register_solution(m_cell_vars, m_node_vars);
 }
 
-void KynemaSGF::update_solution() { m_tgiface.update_solution(); }
+void KynemaSGFInterface::update_solution() { m_tgiface.update_solution(); }
 
-int KynemaSGF::overset_update_interval()
+int KynemaSGFInterface::overset_update_interval()
 {
     const int regrid_int = m_incflo.sim().time().regrid_interval();
     return regrid_int > 0 ? regrid_int : 100000000;
 }
 
-int KynemaSGF::time_index() { return m_incflo.sim().time().time_index(); }
+int KynemaSGFInterface::time_index()
+{
+    return m_incflo.sim().time().time_index();
+}
 
 } // namespace driver

@@ -74,7 +74,19 @@ declares a fixed timestep and reports completion when FMB's `prepare()` returns.
 FMB has no direct MPI dependency. A parallel
 NetCDF or HDF5 installation may still bring in MPI; standalone FMB can use the
 serial versions.
-SGF and UGF still use adapters pending refactoring in their respective repositories.
+SGF and UGF use the same lifecycle adapter through
+[CfdModuleAdapter](../src/modules/CfdModuleAdapter.h), which also forwards
+their overset hooks. Their temporary driver-side interfaces still translate
+native solver calls and preserve the existing mesh and exchange stages.
+The [SGF](../src/modules/KynemaSGF.cpp) and [UGF](../src/modules/KynemaUGF.cpp)
+shims document which calls should move behind native APIs before they can be
+removed. Like any other module, SGF and UGF can be sources or targets in
+`Simulation::connect_modules()` for initialization or timestep JSON. Use
+the module reference returned by Tioga-backed `register_module()` to wire
+these connections before initialization, on matching MPI rank sets. These
+connections are independent of Tioga overset exchange. The SGF and UGF hooks
+currently return `null` or ignore incoming JSON; neither solver defines
+coupling payloads yet.
 Both FMB and the driver use `nlohmann_json` for the shared JSON interface.
 
 Modules execute in the same timestep loop. Overset hooks are optional no-ops in

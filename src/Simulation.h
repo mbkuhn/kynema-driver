@@ -106,13 +106,15 @@ public:
         m_modules.push_back({std::move(module), comm});
     }
 
-    //! Register a module (legacy - passes Tioga instance)
+    //! Register a Tioga-backed module and return it for optional JSON connections.
     template <class ModuleType, class... Args>
-    void register_module(MPI_Comm comm, Args&&... args)
+    ModuleType& register_module(MPI_Comm comm, Args&&... args)
     {
-        register_module(
-            comm,
-            std::make_unique<ModuleType>(std::forward<Args>(args)..., m_tg));
+        auto module =
+            std::make_unique<ModuleType>(std::forward<Args>(args)..., m_tg);
+        auto& result = *module;
+        register_module(comm, std::move(module));
+        return result;
     }
 
     //! Register a module without Tioga (for standalone modules like FMB)
@@ -137,7 +139,7 @@ public:
     //! Initialize all modules
     void initialize();
 
-    //! Connect a JSON output to a module on the same ranks.
+    //! Connect a JSON output to a module on the same ranks, independently of Tioga.
     void connect_modules(
         const Module& source, const Module& target,
         ExchangePhase phase = ExchangePhase::timestep);

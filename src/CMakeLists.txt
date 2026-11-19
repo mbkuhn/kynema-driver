@@ -1,5 +1,7 @@
 target_sources(${KYNEMA_DRIVER_LIB_NAME} PRIVATE
   Module.h
+  modules/ModuleAdapter.h
+  modules/CfdModuleAdapter.h
   MPIUtilities.h
   Simulation.cpp
   Simulation.h
@@ -9,7 +11,7 @@ target_sources(${KYNEMA_DRIVER_LIB_NAME} PRIVATE
 
 if(KYNEMA_DRIVER_ENABLE_FMB)
   target_sources(${KYNEMA_DRIVER_LIB_NAME} PRIVATE
-    modules/ModuleAdapter.h modules/KynemaFMB.h modules/Prescribed.h modules/Prescribed.cpp)
+    modules/KynemaFMB.h modules/Prescribed.h modules/Prescribed.cpp)
   target_link_libraries(${KYNEMA_DRIVER_LIB_NAME} PUBLIC KynemaFMB::kynema_fmb_library)
   target_compile_definitions(${KYNEMA_DRIVER_LIB_NAME} PUBLIC KYNEMA_DRIVER_ENABLE_FMB)
 endif()

@@ -11,7 +11,9 @@
 
 namespace driver {
 
-void KynemaUGF::initialize()
+// Move process-wide Kokkos/Hypre setup and teardown behind a UGF-owned runtime
+// API.
+void KynemaUGFInterface::initialize()
 {
     Kokkos::initialize();
     // Hypre initialization
@@ -19,7 +21,7 @@ void KynemaUGF::initialize()
     kynema_ugf_hypre::hypre_set_params();
 }
 
-void KynemaUGF::finalize()
+void KynemaUGFInterface::finalize()
 {
     // Hypre cleanup
     kynema_ugf_hypre::hypre_finalize();
@@ -29,7 +31,9 @@ void KynemaUGF::finalize()
     }
 }
 
-KynemaUGF::KynemaUGF(
+// Let UGF own communicator, log, and Tioga setup rather than mutating its
+// environment singleton and TiogaRef from the driver.
+KynemaUGFInterface::KynemaUGFInterface(
     int id,
     stk::ParallelMachine comm,
     const YAML::Node& inp_yaml,
@@ -48,9 +52,9 @@ KynemaUGF::KynemaUGF(
     env.set_log_file_stream(logfile);
 }
 
-KynemaUGF::~KynemaUGF() = default;
+KynemaUGFInterface::~KynemaUGFInterface() = default;
 
-void KynemaUGF::load_mesh(bool use_overset)
+void KynemaUGFInterface::load_mesh(bool use_overset)
 {
     // Dump the input yaml to the start of the logfile
     // before the kynema_ugf banner
@@ -64,13 +68,15 @@ void KynemaUGF::load_mesh(bool use_overset)
 
     m_sim.load(m_doc);
     if (m_sim.timeIntegrator_->overset_ != nullptr)
-        m_sim.timeIntegrator_->overset_->set_multi_solver_mode(
-            use_overset);
+        m_sim.timeIntegrator_->overset_->set_multi_solver_mode(use_overset);
     m_sim.breadboard();
     m_sim.init_prolog();
 }
 
-PreparationStage KynemaUGF::prepare(const PreparationContext& context)
+// Wrap load/breadboard and init_prolog/init_epilog in UGF-owned preparation
+// methods. Driver traits should map mesh and exchange readiness to those calls
+// without exposing PreparationContext or walking UGF realms from the driver.
+PreparationStage KynemaUGFInterface::prepare(const PreparationContext& context)
 {
     if (context.stage == PreparationStage::pending) {
         load_mesh(context.use_overset);
@@ -81,7 +87,8 @@ PreparationStage KynemaUGF::prepare(const PreparationContext& context)
         m_sim.timeIntegrator_->prepare_for_time_integration();
         return PreparationStage::exchange_ready;
     }
-    if (context.stage == PreparationStage::exchange_ready && context.solution_exchanged) {
+    if (context.stage == PreparationStage::exchange_ready &&
+        context.solution_exchanged) {
         for (auto* realm : m_sim.timeIntegrator_->realmVec_)
             realm->output_converged_results();
         return PreparationStage::complete;
@@ -89,19 +96,21 @@ PreparationStage KynemaUGF::prepare(const PreparationContext& context)
     return context.stage;
 }
 
-void KynemaUGF::set_inputs(size_t inonlin)
+// Expose prepare_time_step as set_inputs and the first pre-realm advance phase
+// as predict_inputs. Keep the second phase after connectivity.
+void KynemaUGFInterface::set_inputs(std::size_t inonlin)
 {
     m_sim.timeIntegrator_->prepare_time_step(inonlin);
 }
 
-void KynemaUGF::predict_inputs(size_t inonlin)
+void KynemaUGFInterface::predict_inputs(std::size_t inonlin)
 {
     m_sim.timeIntegrator_->pre_realm_advance_stage1(inonlin);
     m_stage2_iteration = inonlin;
     m_stage2_pending = true;
 }
 
-void KynemaUGF::prepare_solution_exchange()
+void KynemaUGFInterface::prepare_solution_exchange()
 {
     if (m_stage2_pending) {
         m_sim.timeIntegrator_->pre_realm_advance_stage2(m_stage2_iteration);
@@ -109,27 +118,31 @@ void KynemaUGF::prepare_solution_exchange()
     }
 }
 
-double KynemaUGF::get_time()
+// Expose time and timestep accessors on the native interface rather than
+// dereferencing timeIntegrator_ or reading timeStepCount_ from the driver.
+double KynemaUGFInterface::get_time()
 {
     return m_sim.timeIntegrator_->get_current_time();
 }
 
-double KynemaUGF::get_timestep_size()
+double KynemaUGFInterface::get_timestep_size()
 {
     return m_sim.timeIntegrator_->get_time_step();
 }
 
-void KynemaUGF::set_timestep_size(const double dt)
+void KynemaUGFInterface::set_timestep_size(const double dt)
 {
     m_sim.timeIntegrator_->set_time_step(dt);
 }
 
-bool KynemaUGF::is_fixed_timestep_size()
+bool KynemaUGFInterface::is_fixed_timestep_size()
 {
     return m_sim.timeIntegrator_->get_is_fixed_time_step();
 }
 
-void KynemaUGF::advance_states(size_t /*inonlin*/)
+// Move the realm loops behind native advance_states and Picard hooks. Expose
+// post_realm_advance as finalize_time_step on that same interface.
+void KynemaUGFInterface::advance_states(std::size_t /*inonlin*/)
 {
     for (auto* realm : m_sim.timeIntegrator_->realmVec_) {
         realm->advance_time_step();
@@ -137,38 +150,40 @@ void KynemaUGF::advance_states(size_t /*inonlin*/)
     }
 }
 
-void KynemaUGF::additional_picard_iterations(const int n)
+void KynemaUGFInterface::additional_picard_iterations(const int n)
 {
     for (auto* realm : m_sim.timeIntegrator_->realmVec_)
         realm->nonlinear_iterations(n);
 }
 
-void KynemaUGF::finalize_time_step()
+void KynemaUGFInterface::finalize_time_step()
 {
     m_sim.timeIntegrator_->post_realm_advance();
 }
 
-void KynemaUGF::pre_overset_conn_work()
+// Publish the overset hooks and registered field component count from UGF's
+// bridge instead of accessing timeIntegrator_->overset_ from the driver.
+void KynemaUGFInterface::pre_overset_conn_work()
 {
     m_sim.timeIntegrator_->overset_->pre_overset_conn_work();
 }
 
-void KynemaUGF::post_overset_conn_work()
+void KynemaUGFInterface::post_overset_conn_work()
 {
     m_sim.timeIntegrator_->overset_->post_overset_conn_work();
 }
 
-void KynemaUGF::register_solution()
+void KynemaUGFInterface::register_solution()
 {
     m_ncomps = m_sim.timeIntegrator_->overset_->register_solution(m_fnames);
 }
 
-void KynemaUGF::update_solution()
+void KynemaUGFInterface::update_solution()
 {
     m_sim.timeIntegrator_->overset_->update_solution();
 }
 
-int KynemaUGF::overset_update_interval()
+int KynemaUGFInterface::overset_update_interval()
 {
     for (auto& realm : m_sim.timeIntegrator_->realmVec_) {
         if (realm->does_mesh_move()) {
@@ -178,9 +193,12 @@ int KynemaUGF::overset_update_interval()
     return 100000000;
 }
 
-int KynemaUGF::time_index() { return m_sim.timeIntegrator_->timeStepCount_; }
+int KynemaUGFInterface::time_index()
+{
+    return m_sim.timeIntegrator_->timeStepCount_;
+}
 
-void KynemaUGF::dump_simulation_time()
+void KynemaUGFInterface::dump_simulation_time()
 {
     for (auto& realm : m_sim.timeIntegrator_->realmVec_) {
         realm->dump_simulation_time();

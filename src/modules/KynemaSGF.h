@@ -1,6 +1,9 @@
+#ifndef KYNEMASGF_H
+#define KYNEMASGF_H
+
+#include "CfdModuleAdapter.h"
 #include "src/incflo.H"
 #include "src/overset/SGFTiogaIface.H"
-#include "../Module.h"
 
 namespace TIOGA {
 class tioga;
@@ -8,7 +11,8 @@ class tioga;
 
 namespace driver {
 
-class KynemaSGF : public Module
+// Temporary shim until SGF exports a native lifecycle interface like FMB.
+class KynemaSGFInterface
 {
 private:
     incflo m_incflo;
@@ -21,36 +25,48 @@ public:
     static void
     initialize(MPI_Comm comm, const std::string& inpfile, std::ofstream& out);
     static void finalize();
-    explicit KynemaSGF(
+    explicit KynemaSGFInterface(
         const std::vector<std::string>&,
         const std::vector<std::string>&,
         TIOGA::tioga&);
-    ~KynemaSGF();
-    bool is_cfd() override { return true; }
-    bool is_background_only() override { return true; }
-    bool is_fixed_timestep_size() override;
-    int overset_update_interval() override;
-    int time_index() override;
-    std::string identifier() override { return "Kynema-SGF"; }
+    ~KynemaSGFInterface();
+    bool is_fixed_timestep_size();
+    int overset_update_interval();
+    int time_index();
+    std::string identifier() { return "Kynema-SGF"; }
 
-protected:
-    PreparationStage prepare(const PreparationContext&) override;
-    void set_inputs(size_t inonlin) override;
-    void predict_inputs(size_t inonlin) override;
-    void reset_states() override {}
-    void advance_states(size_t inonlin) override;
-    void calculate_outputs(size_t) override {}
-    double get_time() override;
-    double get_timestep_size() override;
-    void set_timestep_size(const double) override;
-    void additional_picard_iterations(const int) override {};
-    void finalize_time_step() override;
-    void pre_overset_conn_work() override;
-    void post_overset_conn_work() override;
-    void prepare_solution_exchange() override;
-    void register_solution() override;
-    void update_solution() override;
-    void dump_simulation_time() override {};
+    // SGF should publish or consume JSON here when it has coupling data.
+    nlohmann::json initialization_data() const { return nullptr; }
+    void receive_initialization_data(const nlohmann::json&) {}
+    void receive_inputs(const nlohmann::json&) {}
+    nlohmann::json outputs() const { return nullptr; }
+
+    PreparationStage prepare(const PreparationContext&);
+    void set_inputs(std::size_t inonlin);
+    void predict_inputs(std::size_t inonlin);
+    void reset_states() {} // SGF must expose state restore for coupled retries.
+    void advance_states(std::size_t inonlin);
+    void calculate_outputs(std::size_t) {}
+    double get_time();
+    double get_timestep_size();
+    void set_timestep_size(double);
+    void additional_picard_iterations(int) {}
+    void finalize_time_step();
+    void pre_overset_conn_work();
+    void post_overset_conn_work();
+    void prepare_solution_exchange();
+    void register_solution();
+    void update_solution();
+    void dump_simulation_time() {}
 };
 
+template <>
+struct ModuleAdapterTraits<KynemaSGFInterface>
+    : CfdModuleAdapterTraits<KynemaSGFInterface>
+{};
+
+using KynemaSGF = CfdModuleAdapter<KynemaSGFInterface, true>;
+
 } // namespace driver
+
+#endif

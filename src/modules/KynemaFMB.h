@@ -9,7 +9,11 @@ namespace driver {
 template <>
 struct ModuleAdapterTraits<kynema_fmb::interfaces::GeneralStructureInterface>
 {
-    static constexpr bool fixed_timestep = true;
+    static bool is_fixed_timestep_size(
+        const kynema_fmb::interfaces::GeneralStructureInterface&)
+    {
+        return true;
+    }
 
     static PreparationStage prepare(
         kynema_fmb::interfaces::GeneralStructureInterface& structure,

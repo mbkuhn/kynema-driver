@@ -266,11 +266,11 @@ int run(int argc, char** argv, int size, int rank)
             auto dot = file.find_last_of('.');
             out.open(file.substr(0, dot) + ".log");
             if (!out) throw std::runtime_error("Cannot open SGF log");
-            driver::KynemaSGF::initialize(sgf_comm, file, out);
+            driver::KynemaSGFInterface::initialize(sgf_comm, file, out);
         }
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_UGF
-        if (has_ugf) driver::KynemaUGF::initialize();
+        if (has_ugf) driver::KynemaUGFInterface::initialize();
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_FMB
         if (has_fmb && !Kokkos::is_initialized()) Kokkos::initialize();
@@ -286,7 +286,7 @@ int run(int argc, char** argv, int size, int rank)
             const auto logfile =
                 mapped && instance["logfile"]
                     ? instance["logfile"].as<std::string>()
-                    : driver::KynemaUGF::change_file_name_suffix(
+                    : driver::KynemaUGFInterface::change_file_name_suffix(
                           file, ".log", mapped ? static_cast<int>(i) : -1);
             YAML::Node config = YAML::LoadFile(file);
             if (node["ugf_replace_all"])
@@ -299,7 +299,7 @@ int run(int argc, char** argv, int size, int rank)
                 instance["write_final_yaml_to_disk"].as<bool>() &&
                 comm_rank == 0) {
                 std::ofstream output(
-                    driver::KynemaUGF::change_file_name_suffix(
+                    driver::KynemaUGFInterface::change_file_name_suffix(
                         logfile, ".yaml"));
                 if (!output) throw std::runtime_error("Cannot write UGF YAML");
                 output << config;
@@ -353,10 +353,10 @@ int run(int argc, char** argv, int size, int rank)
         sim.delete_modules();
     }
 #ifdef KYNEMA_DRIVER_ENABLE_SGF
-    if (sgf_comm != MPI_COMM_NULL) driver::KynemaSGF::finalize();
+    if (sgf_comm != MPI_COMM_NULL) driver::KynemaSGFInterface::finalize();
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_UGF
-    if (has_ugf) driver::KynemaUGF::finalize();
+    if (has_ugf) driver::KynemaUGFInterface::finalize();
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_FMB
     if (has_fmb && Kokkos::is_initialized()) Kokkos::finalize();

@@ -58,7 +58,7 @@ private:
 template <>
 struct ModuleAdapterTraits<PrescribedSource>
 {
-    static constexpr bool fixed_timestep = true;
+    static bool is_fixed_timestep_size(const PrescribedSource&) { return true; }
 
     static PreparationStage
     prepare(PrescribedSource& source, const PreparationContext& context)
