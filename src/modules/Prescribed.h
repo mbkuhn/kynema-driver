@@ -1,38 +1,37 @@
 #ifndef DRIVER_PRESCRIBED_H
 #define DRIVER_PRESCRIBED_H
 
-#include "../Module.h"
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
+#include "ModuleAdapter.h"
+
 namespace driver {
 
-class Prescribed : public Module
+class PrescribedSource
 {
 public:
-    explicit Prescribed(const YAML::Node& input) : m_input(input) {}
-    bool is_fixed_timestep_size() override { return true; }
-    int time_index() override { return m_step; }
-    std::string identifier() override { return m_name; }
-    nlohmann::json outputs() const override;
+    explicit PrescribedSource(const YAML::Node& input) : m_input(input) {}
+    int time_index() const { return m_step; }
+    std::string identifier() const { return m_name; }
+    nlohmann::json outputs() const;
 
-protected:
-    PreparationStage prepare(const PreparationContext&) override;
-    void receive_initialization_data(const nlohmann::json& data) override
+    bool prepare();
+    void receive_initialization_data(const nlohmann::json& data)
     {
         m_initialization = data;
     }
-    double get_time() override { return m_time; }
-    double get_timestep_size() override { return m_dt; }
-    void set_timestep_size(double dt) override;
-    void set_inputs(size_t) override {}
-    void predict_inputs(size_t) override {}
-    void reset_states() override {}
-    void advance_states(size_t) override {}
-    void calculate_outputs(size_t) override;
-    void additional_picard_iterations(int) override {}
-    void finalize_time_step() override;
-    void dump_simulation_time() override {}
+    double get_time() const { return m_time; }
+    double get_timestep_size() const { return m_dt; }
+    void set_timestep_size(double dt);
+    void set_inputs(std::size_t) {}
+    void predict_inputs(std::size_t) {}
+    void reset_states() {}
+    void advance_states(std::size_t) {}
+    void calculate_outputs(std::size_t);
+    void additional_picard_iterations(int) {}
+    void finalize_time_step();
+    void dump_simulation_time() {}
 
 private:
     struct Load
@@ -53,6 +52,23 @@ private:
     std::vector<Load> m_loads;
     std::vector<std::vector<double>> m_values;
 };
+
+template <>
+struct ModuleAdapterTraits<PrescribedSource>
+{
+    static constexpr bool fixed_timestep = true;
+    static constexpr bool publishes_initialization_data = false;
+    static constexpr bool accepts_initialization_data = true;
+    static constexpr bool accepts_inputs = false;
+
+    static PreparationStage
+    prepare(PrescribedSource& source, const PreparationContext& context)
+    {
+        return source.prepare() ? PreparationStage::complete : context.stage;
+    }
+};
+
+using Prescribed = ModuleAdapter<PrescribedSource>;
 
 } // namespace driver
 #endif

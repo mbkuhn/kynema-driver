@@ -28,11 +28,24 @@ public:
 
     nlohmann::json initialization_data() const override
     {
-        return m_native.initialization_data();
+        if constexpr (Traits::publishes_initialization_data)
+            return m_native.initialization_data();
+        else
+            return Module::initialization_data();
+    }
+    void receive_initialization_data(const nlohmann::json& data) override
+    {
+        if constexpr (Traits::accepts_initialization_data)
+            m_native.receive_initialization_data(data);
+        else
+            Module::receive_initialization_data(data);
     }
     void receive_inputs(const nlohmann::json& inputs) override
     {
-        m_native.receive_inputs(inputs);
+        if constexpr (Traits::accepts_inputs)
+            m_native.receive_inputs(inputs);
+        else
+            Module::receive_inputs(inputs);
     }
     nlohmann::json outputs() const override { return m_native.outputs(); }
 

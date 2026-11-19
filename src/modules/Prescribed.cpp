@@ -6,9 +6,9 @@
 
 namespace driver {
 
-PreparationStage Prescribed::prepare(const PreparationContext& context)
+bool PrescribedSource::prepare()
 {
-    if (m_initialization.is_null()) return context.stage;
+    if (m_initialization.is_null()) return false;
     m_name += "-" + m_initialization.at("provider").get<std::string>();
     m_dt = m_initialization.at("time_step").get<double>();
     m_time = m_initialization.at("time").get<double>();
@@ -47,15 +47,15 @@ PreparationStage Prescribed::prepare(const PreparationContext& context)
         return a.start_step < b.start_step;
     });
     m_values.assign(items, std::vector<double>(components));
-    return PreparationStage::complete;
+    return true;
 }
 
-nlohmann::json Prescribed::outputs() const
+nlohmann::json PrescribedSource::outputs() const
 {
     return {{"version", m_version}, {m_field, m_values}};
 }
 
-void Prescribed::calculate_outputs(size_t)
+void PrescribedSource::calculate_outputs(std::size_t)
 {
     for (auto& values : m_values) std::fill(values.begin(), values.end(), 0.);
     for (const auto& load : m_loads) {
@@ -64,13 +64,13 @@ void Prescribed::calculate_outputs(size_t)
     }
 }
 
-void Prescribed::set_timestep_size(double dt)
+void PrescribedSource::set_timestep_size(double dt)
 {
     if (dt != m_dt)
         throw std::runtime_error("Prescribed module requires its target timestep");
 }
 
-void Prescribed::finalize_time_step()
+void PrescribedSource::finalize_time_step()
 {
     ++m_step;
     m_time += m_dt;

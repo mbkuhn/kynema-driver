@@ -63,9 +63,10 @@ A YAML file selecting a module disabled in the build is an error.
 
 FMB's `GeneralStructureInterface` builds without a driver checkout or headers.
 The driver-side [ModuleAdapter](../src/modules/ModuleAdapter.h) template implements
-`driver::Module` for native solvers that expose the matching lifecycle and JSON
-methods. [KynemaFMB.h](../src/modules/KynemaFMB.h) specializes only the fixed-step
-policy and preparation: it calls FMB's native `prepare()` and reports completion.
+`driver::Module` for native modules that expose the matching lifecycle methods.
+Its traits select which optional JSON hooks to forward and map native preparation
+onto the driver's preparation stages. [KynemaFMB.h](../src/modules/KynemaFMB.h)
+declares a fixed timestep and reports completion when FMB's `prepare()` returns.
 FMB has no direct MPI dependency. A parallel
 NetCDF or HDF5 installation may still bring in MPI; standalone FMB can use the
 serial versions.
@@ -88,7 +89,9 @@ or displacements with them.
 ## Prescribed FMB loads
 
 The driver-owned `Prescribed` module supplies six-component nodal forces
-`[Fx, Fy, Fz, Mx, My, Mz]`. Select it with `prescribed_inp` (a filename or list)
+`[Fx, Fy, Fz, Mx, My, Mz]`. It uses the same adapter as FMB, but its preparation
+reports no progress until `PrescribedSource` receives initialization JSON.
+Select it with `prescribed_inp` (a filename or list)
 alongside `kynema_fmb_inp`. Each prescribed YAML file names one FMB instance:
 
 ```yaml
