@@ -50,7 +50,7 @@ KynemaUGF::KynemaUGF(
 
 KynemaUGF::~KynemaUGF() = default;
 
-void KynemaUGF::init_prolog(bool multi_module_mode)
+void KynemaUGF::load_mesh(bool use_overset)
 {
     // Dump the input yaml to the start of the logfile
     // before the kynema_ugf banner
@@ -65,22 +65,28 @@ void KynemaUGF::init_prolog(bool multi_module_mode)
     m_sim.load(m_doc);
     if (m_sim.timeIntegrator_->overset_ != nullptr)
         m_sim.timeIntegrator_->overset_->set_multi_solver_mode(
-            multi_module_mode);
+            use_overset);
     m_sim.breadboard();
     m_sim.init_prolog();
 }
 
-void KynemaUGF::init_epilog() { m_sim.init_epilog(); }
-
-void KynemaUGF::prepare_module_prolog()
+PreparationStage KynemaUGF::prepare(const PreparationContext& context)
 {
-    m_sim.timeIntegrator_->prepare_for_time_integration();
-}
-
-void KynemaUGF::prepare_module_epilog()
-{
-    for (auto* realm : m_sim.timeIntegrator_->realmVec_)
-        realm->output_converged_results();
+    if (context.stage == PreparationStage::pending) {
+        load_mesh(context.use_overset);
+        return PreparationStage::mesh_ready;
+    }
+    if (context.stage == PreparationStage::mesh_ready && context.meshes_ready) {
+        m_sim.init_epilog();
+        m_sim.timeIntegrator_->prepare_for_time_integration();
+        return PreparationStage::exchange_ready;
+    }
+    if (context.stage == PreparationStage::exchange_ready && context.solution_exchanged) {
+        for (auto* realm : m_sim.timeIntegrator_->realmVec_)
+            realm->output_converged_results();
+        return PreparationStage::complete;
+    }
+    return context.stage;
 }
 
 void KynemaUGF::set_inputs(size_t inonlin)

@@ -24,6 +24,10 @@ def main():
             "forces must be finite",
         ),
         (
+            {"target_fmb": 1, "loads": [dict(load, force=[0.0] * 5)]},
+            "component count does not match the target",
+        ),
+        (
             {"target_fmb": 1, "loads": [load, load]},
             "Duplicate prescribed node/start_step",
         ),

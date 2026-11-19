@@ -62,10 +62,8 @@ public:
     int get_ncomps() override { return m_ncomps; }
 
 protected:
-    void init_prolog(bool multi_module_mode = true) override;
-    void init_epilog() override;
-    void prepare_module_prolog() override;
-    void prepare_module_epilog() override;
+    PreparationStage prepare(const PreparationContext&) override;
+    void load_mesh(bool use_overset);
     void set_inputs(size_t inonlin) override;
     void predict_inputs(size_t inonlin) override;
     void reset_states() override {}

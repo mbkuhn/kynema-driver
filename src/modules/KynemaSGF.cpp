@@ -52,20 +52,21 @@ KynemaSGF::KynemaSGF(
 
 KynemaSGF::~KynemaSGF() = default;
 
-void KynemaSGF::init_prolog(bool multi_module_mode)
+PreparationStage KynemaSGF::prepare(const PreparationContext& context)
 {
-    if (multi_module_mode) m_incflo.sim().activate_overset();
-    m_incflo.init_mesh();
-    m_incflo.init_kynema_sgf_modules();
-}
-
-void KynemaSGF::init_epilog() {}
-
-void KynemaSGF::prepare_module_prolog() {}
-
-void KynemaSGF::prepare_module_epilog()
-{
-    m_incflo.prepare_for_time_integration();
+    if (context.stage == PreparationStage::pending) {
+        if (context.use_overset) m_incflo.sim().activate_overset();
+        m_incflo.init_mesh();
+        m_incflo.init_kynema_sgf_modules();
+        return PreparationStage::mesh_ready;
+    }
+    if (context.stage == PreparationStage::mesh_ready && context.meshes_ready)
+        return PreparationStage::exchange_ready;
+    if (context.stage == PreparationStage::exchange_ready && context.solution_exchanged) {
+        m_incflo.prepare_for_time_integration();
+        return PreparationStage::complete;
+    }
+    return context.stage;
 }
 
 void KynemaSGF::set_inputs(size_t inonlin)

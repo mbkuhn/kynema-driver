@@ -340,8 +340,9 @@ int run(int argc, char** argv, int size, int rank)
                     if (nonlinear < 2)
                         throw std::runtime_error("Prescribed FMB loads require at least two nonlinear iterations");
                     auto& source = sim.register_module_no_tioga<driver::Prescribed>(
-                        fmb_comms[i], prescribed_inputs[i], target.identifier(),
-                        target.get_timestep_size(), target.num_nodes());
+                        fmb_comms[i], prescribed_inputs[i]);
+                    sim.connect_modules(
+                        target, source, driver::Simulation::ExchangePhase::initialization);
                     sim.connect_modules(source, target);
                 }
             }

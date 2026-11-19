@@ -6,8 +6,11 @@ depend on MPI. Pass a communicator separately when registering a module;
 `Simulation` keeps it and the module's timing data alongside the module.
 Use `register_module()` to register a constructed module or construct a Tioga
 adapter, and `register_module_no_tioga()` to construct a module without Tioga.
-Initialization hooks use
-`prepare_module_prolog()` and `prepare_module_epilog()`.
+The driver calls each unfinished module's `prepare()` again after exchanging
+initialization JSON. A module that still needs data returns its current stage
+unchanged. Preparation ends when all ranks report completion, or fails if no
+module or exchange makes progress. The driver still coordinates the CFD mesh
+and overset exchange dependencies across ranks.
 Every module implements `reset_states()`, called before advancing subsequent
 nonlinear iterations. SGF and UGF currently keep their existing state handling
 and implement this hook as a no-op.
@@ -102,6 +105,12 @@ specified step until the next entry for that node. Duplicate node/start-step
 pairs are errors. Only one prescribed module may target each FMB instance.
 It runs on its target's communicator, so `--fmb` and `fmb_procs` also determine
 its ranks; there is no separate rank allocation or MPI transfer.
+During preparation, the target sends initialization JSON describing its time
+and step, timestep size, output field name and version, and the number of items
+and components. Prescribed uses only that JSON and its YAML schedule; it does not
+include FMB headers or query the FMB object. During timestepping the connection
+runs in the other direction, from Prescribed to FMB.
+
 Use at least two nonlinear iterations: FMB predicts loads on the first
 iteration. After a module calculates its outputs, the driver routes its JSON
 `outputs()` to the connected module's `receive_inputs()` for the next iteration.

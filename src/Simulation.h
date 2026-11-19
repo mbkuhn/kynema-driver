@@ -18,12 +18,18 @@ namespace driver {
 
 class Simulation
 {
+public:
+    enum class ExchangePhase { initialization, timestep };
+
 private:
     struct RegisteredModule
     {
         std::unique_ptr<Module> instance;
         MPI_Comm comm;
         const Module* input_source{nullptr};
+        const Module* initialization_source{nullptr};
+        PreparationStage preparation_stage{PreparationStage::pending};
+        bool initialization_data_received{false};
         Timers timers{{"Pre", "PreConn", "PostConn", "Register", "Update",
                        "Post", "SetInputs", "PredictInputs", "ResetStates",
                        "AdvanceStates", "CalculateOutputs"}};
@@ -73,6 +79,7 @@ private:
     TIOGA::tioga m_tg;
     //! Determine background-only and generic CFD module types
     void check_module_types();
+    void prepare_modules();
     //! Determine if we should update connectivity during time integration
     void determine_overset_interval();
     //! Return True if connectivity must be updated at a given timestep
@@ -131,7 +138,9 @@ public:
     void initialize();
 
     //! Connect a JSON output to a module on the same ranks.
-    void connect_modules(const Module& source, const Module& target);
+    void connect_modules(
+        const Module& source, const Module& target,
+        ExchangePhase phase = ExchangePhase::timestep);
 
     //! Determine field, fringe, hole information
     void perform_overset_connectivity();

@@ -22,7 +22,8 @@ Simulation::Simulation(MPI_Comm comm)
 
 Simulation::~Simulation() = default;
 
-void Simulation::connect_modules(const Module& source, const Module& target)
+void Simulation::connect_modules(
+    const Module& source, const Module& target, ExchangePhase phase)
 {
     const auto find_module = [&](const Module& instance) {
         return std::find_if(
@@ -34,13 +35,75 @@ void Simulation::connect_modules(const Module& source, const Module& target)
     const auto to = find_module(target);
     if (m_initialized || from == m_modules.end() || to == m_modules.end())
         throw std::invalid_argument("Connect registered modules before initialization");
-    if (to->input_source)
+    auto& connection = phase == ExchangePhase::initialization
+                           ? to->initialization_source
+                           : to->input_source;
+    if (connection)
         throw std::invalid_argument("Module already has a JSON input source");
     int comparison = MPI_UNEQUAL;
     MPI_Comm_compare(from->comm, to->comm, &comparison);
     if (comparison != MPI_IDENT && comparison != MPI_CONGRUENT)
         throw std::invalid_argument("JSON exchange requires co-located modules");
-    to->input_source = &source;
+    connection = &source;
+}
+
+void Simulation::prepare_modules()
+{
+    bool meshes_ready = false;
+    bool solution_exchanged = false;
+    // Retry in collective rounds instead of growing the call stack.
+    while (true) {
+        bool all_complete = true;
+        bool all_meshes_ready = true;
+        bool all_exchange_ready = true;
+        bool stalled = true;
+        for (auto& module : m_modules) {
+            const auto stage = module.preparation_stage;
+            if (stage != PreparationStage::complete) {
+                module.preparation_stage = module->prepare(
+                    {stage, m_use_overset, meshes_ready, solution_exchanged});
+                stalled &= stage == module.preparation_stage;
+            }
+            all_complete &= module.preparation_stage == PreparationStage::complete;
+            if (module->is_cfd()) {
+                all_meshes_ready &= module.preparation_stage >= PreparationStage::mesh_ready;
+                all_exchange_ready &= module.preparation_stage >= PreparationStage::exchange_ready;
+            }
+        }
+
+        for (auto& module : m_modules) {
+            if (!module.initialization_source || module.initialization_data_received)
+                continue;
+            const auto data = module.initialization_source->initialization_data();
+            if (data.is_null()) continue;
+            module->receive_initialization_data(data);
+            module.initialization_data_received = true;
+            stalled = false;
+        }
+
+        bool flags[]{all_complete, all_meshes_ready, all_exchange_ready, stalled};
+        MPI_Allreduce(MPI_IN_PLACE, flags, 4, MPI_C_BOOL, MPI_LAND, m_comm);
+        if (!meshes_ready && flags[1]) {
+            determine_overset_interval();
+            meshes_ready = true;
+            continue;
+        }
+        if (!solution_exchanged && flags[2]) {
+            perform_overset_connectivity();
+            exchange_solution();
+            solution_exchanged = true;
+            continue;
+        }
+        if (flags[0]) return;
+        if (flags[3]) {
+            std::string message = "Module preparation stalled";
+            for (auto& module : m_modules) {
+                if (module.preparation_stage != PreparationStage::complete)
+                    message += "; waiting for " + module->identifier();
+            }
+            throw std::runtime_error(message);
+        }
+    }
 }
 
 void Simulation::check_module_types()
@@ -95,19 +158,7 @@ void Simulation::initialize()
     if (global_modules == 0) throw std::runtime_error("No modules registered");
     m_use_overset = global_cfd_modules > 1;
 
-    for (auto& module : m_modules) module->init_prolog(m_use_overset);
-
-    determine_overset_interval();
-
-    for (auto& module : m_modules) {
-        module->init_epilog();
-        module->prepare_module_prolog();
-    }
-
-    perform_overset_connectivity();
-    exchange_solution();
-
-    for (auto& module : m_modules) module->prepare_module_epilog();
+    prepare_modules();
 
     int min_step = std::numeric_limits<int>::max();
     int max_step = std::numeric_limits<int>::min();

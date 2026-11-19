@@ -8,6 +8,16 @@
 
 namespace driver {
 
+enum class PreparationStage { pending, mesh_ready, exchange_ready, complete };
+
+struct PreparationContext
+{
+    PreparationStage stage;
+    bool use_overset;
+    bool meshes_ready;
+    bool solution_exchanged;
+};
+
 class Module
 {
 public:
@@ -21,10 +31,16 @@ public:
     virtual std::string identifier() { return "Module"; }
     virtual int get_ncomps() { return 0; }
 
-    virtual void init_prolog(bool multi_module_mode = true) = 0;
-    virtual void init_epilog() = 0;
-    virtual void prepare_module_prolog() = 0;
-    virtual void prepare_module_epilog() = 0;
+    // Return the current stage unchanged while waiting for a dependency.
+    virtual PreparationStage prepare(const PreparationContext&) = 0;
+
+    // A non-null initialization payload is sent once per connection.
+    virtual nlohmann::json initialization_data() const { return nullptr; }
+    virtual void receive_initialization_data(const nlohmann::json&)
+    {
+        throw std::logic_error("Module does not accept initialization data");
+    }
+
     virtual double get_time() = 0;
     virtual double get_timestep_size() = 0;
     virtual void set_timestep_size(double) = 0;
