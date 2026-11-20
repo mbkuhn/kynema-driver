@@ -35,7 +35,8 @@ void Simulation::connect_modules(
     const auto from = find_module(source);
     const auto to = find_module(target);
     if (m_initialized || from == m_modules.end() || to == m_modules.end())
-        throw std::invalid_argument("Connect registered modules before initialization");
+        throw std::invalid_argument(
+            "Connect registered modules before initialization");
     auto& connection = phase == ExchangePhase::initialization
                            ? to->initialization_source
                            : to->input_source;
@@ -44,7 +45,8 @@ void Simulation::connect_modules(
     int comparison = MPI_UNEQUAL;
     MPI_Comm_compare(from->comm, to->comm, &comparison);
     if (comparison != MPI_IDENT && comparison != MPI_CONGRUENT)
-        throw std::invalid_argument("JSON exchange requires co-located modules");
+        throw std::invalid_argument(
+            "JSON exchange requires co-located modules");
     connection = &source;
 }
 
@@ -65,26 +67,32 @@ void Simulation::prepare_modules()
                     {stage, m_use_overset, meshes_ready, solution_exchanged});
                 stalled &= stage == module.preparation_stage;
             }
-            all_complete &= module.preparation_stage == PreparationStage::complete;
+            all_complete &=
+                module.preparation_stage == PreparationStage::complete;
             if (module->is_cfd()) {
-                all_meshes_ready &= module.preparation_stage >= PreparationStage::mesh_ready;
-                all_exchange_ready &= module.preparation_stage >= PreparationStage::exchange_ready;
+                all_meshes_ready &=
+                    module.preparation_stage >= PreparationStage::mesh_ready;
+                all_exchange_ready &= module.preparation_stage >=
+                                      PreparationStage::exchange_ready;
             }
         }
 
         // JSON arrives after prepare() each round. A module that needs it must
         // not report complete: the driver will not call its prepare() again.
         for (auto& module : m_modules) {
-            if (!module.initialization_source || module.initialization_data_received)
+            if (!module.initialization_source ||
+                module.initialization_data_received)
                 continue;
-            const auto data = module.initialization_source->initialization_data();
+            const auto data =
+                module.initialization_source->initialization_data();
             if (data.is_null()) continue;
             module->receive_initialization_data(data);
             module.initialization_data_received = true;
             stalled = false;
         }
 
-        bool flags[]{all_complete, all_meshes_ready, all_exchange_ready, stalled};
+        bool flags[]{
+            all_complete, all_meshes_ready, all_exchange_ready, stalled};
         MPI_Allreduce(MPI_IN_PLACE, flags, 4, MPI_C_BOOL, MPI_LAND, m_comm);
         if (!meshes_ready && flags[1]) {
             determine_overset_interval();
@@ -157,7 +165,8 @@ void Simulation::initialize()
     }
     int global_modules = 0, global_cfd_modules = 0;
     MPI_Allreduce(&local_modules, &global_modules, 1, MPI_INT, MPI_SUM, m_comm);
-    MPI_Allreduce(&local_cfd_modules, &global_cfd_modules, 1, MPI_INT, MPI_SUM, m_comm);
+    MPI_Allreduce(
+        &local_cfd_modules, &global_cfd_modules, 1, MPI_INT, MPI_SUM, m_comm);
     if (global_modules == 0) throw std::runtime_error("No modules registered");
     m_use_overset = global_cfd_modules > 1;
 
@@ -262,8 +271,9 @@ void Simulation::run_timesteps(
     auto current_time = [&]() {
         double result = std::numeric_limits<double>::max();
         for (auto& module : m_modules)
-            result = std::min(
-                result, module.timed("Pre", [&] { return module->get_time(); }));
+            result = std::min(result, module.timed("Pre", [&] {
+                return module->get_time();
+            }));
         MPI_Allreduce(MPI_IN_PLACE, &result, 1, MPI_DOUBLE, MPI_MIN, m_comm);
         return result;
     };
@@ -352,8 +362,9 @@ void Simulation::run_timesteps(
                 const auto& names = module.timers.m_names;
                 if (std::find(names.begin(), names.end(), name) == names.end())
                     module.timers.addTimer(name);
-                module.timed(
-                    name, [&] { module->additional_picard_iterations(add_pic_its); });
+                module.timed(name, [&] {
+                    module->additional_picard_iterations(add_pic_its);
+                });
             }
         }
         for (auto& module : m_modules)

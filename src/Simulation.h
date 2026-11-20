@@ -30,9 +30,10 @@ private:
         const Module* initialization_source{nullptr};
         PreparationStage preparation_stage{PreparationStage::pending};
         bool initialization_data_received{false};
-        Timers timers{{"Pre", "PreConn", "PostConn", "Register", "Update",
-                       "Post", "SetInputs", "PredictInputs", "ResetStates",
-                       "AdvanceStates", "CalculateOutputs"}};
+        Timers timers{
+            {"Pre", "PreConn", "PostConn", "Register", "Update", "Post",
+             "SetInputs", "PredictInputs", "ResetStates", "AdvanceStates",
+             "CalculateOutputs"}};
 
         Module* operator->() const { return instance.get(); }
 
@@ -100,13 +101,16 @@ public:
     //! The caller keeps the module communicator alive until module deletion.
     void register_module(MPI_Comm comm, std::unique_ptr<Module> module)
     {
-        if (!module) throw std::invalid_argument("Cannot register a null module");
+        if (!module)
+            throw std::invalid_argument("Cannot register a null module");
         if (comm == MPI_COMM_NULL)
-            throw std::invalid_argument("Cannot register a module with MPI_COMM_NULL");
+            throw std::invalid_argument(
+                "Cannot register a module with MPI_COMM_NULL");
         m_modules.push_back({std::move(module), comm});
     }
 
-    //! Register a Tioga-backed module and return it for optional JSON connections.
+    //! Register a Tioga-backed module and return it for optional JSON
+    //! connections.
     template <class ModuleType, class... Args>
     ModuleType& register_module(MPI_Comm comm, Args&&... args)
     {
@@ -139,9 +143,11 @@ public:
     //! Initialize all modules
     void initialize();
 
-    //! Connect a JSON output to a module on the same ranks, independently of Tioga.
+    //! Connect a JSON output to a module on the same ranks, independently of
+    //! Tioga.
     void connect_modules(
-        const Module& source, const Module& target,
+        const Module& source,
+        const Module& target,
         ExchangePhase phase = ExchangePhase::timestep);
 
     //! Determine field, fringe, hole information

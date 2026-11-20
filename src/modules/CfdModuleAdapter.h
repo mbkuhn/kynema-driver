@@ -34,7 +34,8 @@ public:
         this->native().post_overset_conn_work();
     }
     // This also finishes native pre-advance work when Tioga is disabled.
-    // Keep it independent of the optional connectivity and field-transfer hooks.
+    // Keep it independent of the optional connectivity and field-transfer
+    // hooks.
     void prepare_solution_exchange() override
     {
         this->native().prepare_solution_exchange();

@@ -185,7 +185,8 @@ int run(int argc, char** argv, int size, int rank)
         if (target < 1 || static_cast<size_t>(target) > fmb.size())
             throw std::runtime_error("Prescribed target_fmb is out of range");
         if (!prescribed_inputs[target - 1].IsNull())
-            throw std::runtime_error("Only one prescribed module is allowed per FMB instance");
+            throw std::runtime_error(
+                "Only one prescribed module is allowed per FMB instance");
         prescribed_inputs[target - 1] = input;
     }
     if (!sgf && ugf.size() == 0 && fmb.size() == 0)
@@ -325,8 +326,7 @@ int run(int argc, char** argv, int size, int rank)
                 node["sgf_node_vars"]
                     ? node["sgf_node_vars"].as<std::vector<std::string>>()
                     : std::vector<std::string>{};
-            sim.register_module<driver::KynemaSGF>(
-                sgf_comm, cvars, nvars);
+            sim.register_module<driver::KynemaSGF>(sgf_comm, cvars, nvars);
         }
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_FMB
@@ -341,11 +341,15 @@ int run(int argc, char** argv, int size, int rank)
                 sim.register_module(fmb_comms[i], std::move(module));
                 if (!prescribed_inputs[i].IsNull()) {
                     if (nonlinear < 2)
-                        throw std::runtime_error("Prescribed FMB loads require at least two nonlinear iterations");
-                    auto& source = sim.register_module_no_tioga<driver::Prescribed>(
-                        fmb_comms[i], prescribed_inputs[i]);
+                        throw std::runtime_error(
+                            "Prescribed FMB loads require at least two "
+                            "nonlinear iterations");
+                    auto& source =
+                        sim.register_module_no_tioga<driver::Prescribed>(
+                            fmb_comms[i], prescribed_inputs[i]);
                     sim.connect_modules(
-                        target, source, driver::Simulation::ExchangePhase::initialization);
+                        target, source,
+                        driver::Simulation::ExchangePhase::initialization);
                     sim.connect_modules(source, target);
                 }
             }

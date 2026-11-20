@@ -33,7 +33,8 @@ public:
     // Return the current stage unchanged while waiting for a dependency.
     virtual PreparationStage prepare(const PreparationContext&) = 0;
 
-    // Null means no payload; the first non-null initialization payload is sent once.
+    // Null means no payload; the first non-null initialization payload is sent
+    // once.
     virtual nlohmann::json initialization_data() const { return nullptr; }
     virtual void receive_initialization_data(const nlohmann::json&) {}
 
