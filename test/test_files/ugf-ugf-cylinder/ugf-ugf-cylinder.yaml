@@ -5,7 +5,8 @@ kynema_driver:
     - cylinder-ugf-far.yaml
     - cylinder-ugf-near.yaml
   num_timesteps: 10
-  additional_picard_iterations: 2
+  additional_picard_iterations:
+    ugf: [2, 2]
 
   # Variables for overset exchange
   ugf_vars:

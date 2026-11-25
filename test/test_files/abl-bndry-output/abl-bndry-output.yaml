@@ -4,7 +4,8 @@ kynema_driver:
     - abl-ugf-box.yaml
   kynema_sgf_inp: abl-sgf-bndry-output.inp
   num_timesteps: 10
-  additional_picard_iterations: 2
+  additional_picard_iterations:
+    ugf: [2]
 
   ugf_vars:
     - velocity

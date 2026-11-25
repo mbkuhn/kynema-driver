@@ -5,3 +5,5 @@ kynema_driver:
   fmb_procs: [1, 1]
   num_timesteps: 2
   nonlinear_iterations: 2
+  additional_picard_iterations:
+    fmb: [1, 0]

@@ -3,4 +3,6 @@ kynema_driver:
   prescribed_inp: prescribed.yaml
   num_timesteps: 40
   nonlinear_iterations: 3
-  additional_picard_iterations: 1
+  additional_picard_iterations:
+    fmb: [1]
+    prescribed: [1]

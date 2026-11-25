@@ -4,7 +4,8 @@ kynema_driver:
     - dam-break-block-ugf.yaml
   kynema_sgf_inp: dam-break-block-sgf.inp
   max_time: 0.047
-  additional_picard_iterations: 2
+  additional_picard_iterations:
+    ugf: [2]
 
   ugf_vars:
     - volume_of_fluid

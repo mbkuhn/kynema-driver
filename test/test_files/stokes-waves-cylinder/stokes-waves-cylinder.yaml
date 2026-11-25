@@ -4,7 +4,8 @@ kynema_driver:
     - stokes-waves-cylinder-ugf.yaml
   kynema_sgf_inp: stokes-waves-cylinder-sgf.inp
   num_timesteps: 10
-  additional_picard_iterations: 1
+  additional_picard_iterations:
+    ugf: [1]
 
   ugf_vars:
     - volume_of_fluid

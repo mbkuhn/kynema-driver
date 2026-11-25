@@ -1,3 +1,5 @@
 kynema_driver:
   kynema_sgf_inp: flat-surface-sgf.inp
   num_timesteps: 1
+  additional_picard_iterations:
+    sgf: [1]

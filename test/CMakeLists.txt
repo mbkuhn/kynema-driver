@@ -14,6 +14,13 @@ endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CTestCustom.cmake ${CMAKE_BINARY_DIR}/CTestCustom.cmake)
 
+add_executable(module-picard-test test_picard.cpp)
+target_link_libraries(module-picard-test PRIVATE ${KYNEMA_DRIVER_LIB_NAME})
+add_test(NAME module-picard
+  COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+    $<TARGET_FILE:module-picard-test> ${MPIEXEC_POSTFLAGS})
+set_tests_properties(module-picard PROPERTIES LABELS "regression" TIMEOUT 90 RUN_SERIAL TRUE)
+
 if(KYNEMA_DRIVER_TEST_WITH_FCOMPARE)
   set(FCOMPARE_EXE "${FCOMPARE_EXE}" CACHE STRING "Path to fcompare executable for regression tests")
   if("${KYNEMA_DRIVER_REFERENCE_GOLDS_DIRECTORY}" STREQUAL "")
@@ -120,6 +127,15 @@ endif()
 if(KYNEMA_DRIVER_ENABLE_UGF)
 add_test_r(ugf-ugf-cylinder 430.98)
 add_test_r(ugf-ugf-cylinder-motion 483.16)
+set(TEST_NAME ugf-ugf-cylinder)
+setup_test()
+add_test(NAME ugf-ugf-unequal-picard
+  COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+    $<TARGET_FILE:${KYNEMA_DRIVER_EXE_NAME}> ${MPIEXEC_POSTFLAGS}
+    unequal-picard.yaml)
+set_tests_properties(ugf-ugf-unequal-picard PROPERTIES
+  WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}" LABELS regression
+  TIMEOUT 14400 RUN_SERIAL TRUE)
 endif()
 if(KYNEMA_DRIVER_ENABLE_SGF OR KYNEMA_DRIVER_ENABLE_UGF)
   set(TEST_NAME flat-surface)
@@ -205,6 +221,13 @@ if(KYNEMA_DRIVER_ENABLE_FMB)
       ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
       $<TARGET_FILE:${KYNEMA_DRIVER_EXE_NAME}> ${MPIEXEC_POSTFLAGS} --fmb 1)
   set_tests_properties(fmb-prescribed-invalid PROPERTIES
+    WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
+    LABELS "regression" RUN_SERIAL TRUE TIMEOUT 210)
+  add_test(NAME fmb-picard-invalid
+    COMMAND ${Python3_EXECUTABLE} "${CURRENT_TEST_SOURCE_DIR}/check_invalid_picard.py"
+      ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+      $<TARGET_FILE:${KYNEMA_DRIVER_EXE_NAME}> ${MPIEXEC_POSTFLAGS} --fmb 1)
+  set_tests_properties(fmb-picard-invalid PROPERTIES
     WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}"
     LABELS "regression" RUN_SERIAL TRUE TIMEOUT 210)
   add_test(NAME fmb-cli-single

@@ -41,6 +41,8 @@ std::string usage(const char* name)
            "  optionally specify the rank count per instance.\n"
            "  prescribed_inp accepts a file or list of force schedules, each\n"
            "  co-located with its target_fmb instance (one-based).\n"
+           "  additional_picard_iterations maps module types to lists of\n"
+           "  nonnegative per-instance correction counts (default zero).\n"
            "  Modules are enabled at build time with "
            "KYNEMA_DRIVER_ENABLE_SGF,\n"
            "  KYNEMA_DRIVER_ENABLE_UGF and KYNEMA_DRIVER_ENABLE_FMB.\n";
@@ -139,6 +141,23 @@ partition(const YAML::Node& node, const char* key, int count, int ranks)
     return sizes;
 }
 
+std::vector<int> picard_counts(
+    const YAML::Node& config, const char* key, std::size_t count)
+{
+    if (!config || !config[key]) return std::vector<int>(count, 0);
+    const auto value = config[key];
+    if (!count || !value.IsSequence() || value.size() != count)
+        throw std::runtime_error(
+            std::string("additional_picard_iterations.") + key +
+            " must contain one count per selected instance");
+    const auto counts = value.as<std::vector<int>>();
+    if (std::any_of(counts.begin(), counts.end(), [](int n) { return n < 0; }))
+        throw std::runtime_error(
+            std::string("additional_picard_iterations.") + key +
+            " counts must be nonnegative");
+    return counts;
+}
+
 std::vector<MPI_Comm> communicators(const std::vector<int>& sizes, int size)
 {
     std::vector<MPI_Comm> result;
@@ -218,17 +237,32 @@ int run(int argc, char** argv, int size, int rank)
         node["num_timesteps"] ? node["num_timesteps"].as<int>() : -1;
     const double max_time =
         node["max_time"] ? node["max_time"].as<double>() : -1.;
-    const int picard = node["additional_picard_iterations"]
-                           ? node["additional_picard_iterations"].as<int>()
-                           : 0;
+    const auto picard = node["additional_picard_iterations"];
+    if (picard && !picard.IsMap())
+        throw std::runtime_error(
+            "additional_picard_iterations must be a mapping of module types, not a scalar");
+    if (picard) {
+        for (const auto& entry : picard) {
+            const auto key = entry.first.as<std::string>();
+            if (key != "sgf" && key != "ugf" && key != "fmb" && key != "prescribed")
+                throw std::runtime_error("Unknown additional_picard_iterations module: " + key);
+        }
+    }
+    const auto sgf_picard = picard_counts(picard, "sgf", sgf ? 1 : 0);
+    const auto ugf_picard = picard_counts(picard, "ugf", ugf.size());
+    const auto fmb_picard = picard_counts(picard, "fmb", fmb.size());
+    const auto prescribed_picard = picard_counts(picard, "prescribed", fmb.size());
+    for (std::size_t i = 0; i < fmb.size(); ++i)
+        if (prescribed_inputs[i].IsNull() && prescribed_picard[i] != 0)
+            throw std::runtime_error(
+                "additional_picard_iterations.prescribed refers to a missing prescribed module");
     const int nonlinear = node["nonlinear_iterations"]
                               ? node["nonlinear_iterations"].as<int>()
                               : 1;
-    if ((steps <= 0 && max_time <= 0.) || nonlinear < 1 || picard < 0)
+    if ((steps <= 0 && max_time <= 0.) || nonlinear < 1)
         throw std::runtime_error(
             "Specify positive num_timesteps or max_time, positive "
-            "nonlinear_iterations and nonnegative "
-            "additional_picard_iterations");
+            "nonlinear_iterations");
 
     auto ugf_comms = communicators(
         partition(node, "ugf_procs", ugf.size(), options.ugf), size);
@@ -308,12 +342,13 @@ int run(int argc, char** argv, int size, int rank)
                 if (!output) throw std::runtime_error("Cannot write UGF YAML");
                 output << config;
             }
-            sim.register_module<driver::KynemaUGF>(
+            auto& module = sim.register_module<driver::KynemaUGF>(
                 ugf_comms[i], static_cast<int>(i + 1), ugf_comms[i], config,
                 logfile,
                 node["ugf_vars"]
                     ? node["ugf_vars"].as<std::vector<std::string>>()
                     : std::vector<std::string>{});
+            sim.set_additional_picard_iterations(module, ugf_picard[i]);
         }
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_SGF
@@ -326,7 +361,8 @@ int run(int argc, char** argv, int size, int rank)
                 node["sgf_node_vars"]
                     ? node["sgf_node_vars"].as<std::vector<std::string>>()
                     : std::vector<std::string>{};
-            sim.register_module<driver::KynemaSGF>(sgf_comm, cvars, nvars);
+            auto& module = sim.register_module<driver::KynemaSGF>(sgf_comm, cvars, nvars);
+            sim.set_additional_picard_iterations(module, sgf_picard[0]);
         }
 #endif
 #ifdef KYNEMA_DRIVER_ENABLE_FMB
@@ -339,6 +375,7 @@ int run(int argc, char** argv, int size, int rank)
                     static_cast<int>(i + 1), comm_rank == 0);
                 auto& target = *module;
                 sim.register_module(fmb_comms[i], std::move(module));
+                sim.set_additional_picard_iterations(target, fmb_picard[i]);
                 if (!prescribed_inputs[i].IsNull()) {
                     if (nonlinear < 2)
                         throw std::runtime_error(
@@ -347,6 +384,7 @@ int run(int argc, char** argv, int size, int rank)
                     auto& source =
                         sim.register_module_no_tioga<driver::Prescribed>(
                             fmb_comms[i], prescribed_inputs[i]);
+                    sim.set_additional_picard_iterations(source, prescribed_picard[i]);
                     sim.connect_modules(
                         target, source,
                         driver::Simulation::ExchangePhase::initialization);
@@ -356,7 +394,7 @@ int run(int argc, char** argv, int size, int rank)
         }
 #endif
         sim.initialize();
-        sim.run_timesteps(picard, nonlinear, steps, max_time);
+        sim.run_timesteps(nonlinear, steps, max_time);
         // Destroy solver instances before finalizing their runtimes or freeing
         // their communicators.
         sim.delete_modules();

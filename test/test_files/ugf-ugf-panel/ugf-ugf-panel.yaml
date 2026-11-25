@@ -5,7 +5,8 @@ kynema_driver:
     - ugf_platform.yaml
     - ugf_panel.yaml
   num_timesteps: 10
-  additional_picard_iterations: 2
+  additional_picard_iterations:
+    ugf: [2, 2]
   use_adaptive_holemap: true
   composite_body:
     - composite_name: first_body

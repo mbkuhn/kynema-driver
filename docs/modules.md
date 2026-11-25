@@ -35,12 +35,27 @@ kynema_driver:
   fmb_procs: [1, 2]
   num_timesteps: 40
   nonlinear_iterations: 2
+  additional_picard_iterations:
+    fmb: [1, 0]
 ```
 
 Input filenames are resolved relative to the working directory. SGF uses
 `kynema_sgf_inp`; UGF uses `kynema_ugf_inp` and optionally `ugf_procs`. The
 UGF list also accepts the existing `base_input_file`, `replace`, and `logfile`
 mapping form. Module keys may be combined in one input file.
+
+`additional_picard_iterations` is an optional mapping with keys `sgf`, `ugf`,
+`fmb`, and `prescribed`. Each value is a list of nonnegative counts, one per
+instance in input order (`sgf` has one entry; `prescribed` is indexed by its
+target FMB instance, using zero where no prescribed module exists). Omitted
+types default to zero. The former scalar form is no longer accepted.
+After the shared nonlinear iterations, an overset solution exchange occurs if
+any module has corrections. Each selected module then performs its own
+corrections without further JSON or overset exchange. FMB resets and advances
+once per correction, then refreshes its outputs. UGF calls each realm's
+`nonlinear_iterations(count)` once. The existing SGF and prescribed correction
+hooks remain no-ops; SGF must expose state restoration before it can support
+corrections. Finalization still occurs once per timestep.
 
 Run with MPI, optionally specifying the number of ranks for each module type:
 

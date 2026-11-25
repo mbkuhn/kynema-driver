@@ -26,6 +26,7 @@ private:
     {
         std::unique_ptr<Module> instance;
         MPI_Comm comm;
+        int additional_picard_iterations{0};
         const Module* input_source{nullptr};
         const Module* initialization_source{nullptr};
         PreparationStage preparation_stage{PreparationStage::pending};
@@ -33,7 +34,7 @@ private:
         Timers timers{
             {"Pre", "PreConn", "PostConn", "Register", "Update", "Post",
              "SetInputs", "PredictInputs", "ResetStates", "AdvanceStates",
-             "CalculateOutputs"}};
+             "CalculateOutputs", "AdditionalPicardIterations"}};
 
         Module* operator->() const { return instance.get(); }
 
@@ -150,6 +151,9 @@ public:
         const Module& target,
         ExchangePhase phase = ExchangePhase::timestep);
 
+    //! Set the number of local corrections for a registered module.
+    void set_additional_picard_iterations(const Module& module, int count);
+
     //! Determine field, fringe, hole information
     void perform_overset_connectivity();
 
@@ -158,7 +162,6 @@ public:
 
     //! Run prescribed number of timesteps
     void run_timesteps(
-        const int add_pic_its,
         const int nonlinear_its = 1,
         const int nsteps = 1,
         const double max_time = -1.);

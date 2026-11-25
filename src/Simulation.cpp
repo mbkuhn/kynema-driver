@@ -23,6 +23,19 @@ Simulation::Simulation(MPI_Comm comm)
 
 Simulation::~Simulation() = default;
 
+void Simulation::set_additional_picard_iterations(const Module& instance, int count)
+{
+    if (m_initialized || count < 0)
+        throw std::invalid_argument("Set a nonnegative Picard count before initialization");
+    const auto module = std::find_if(
+        m_modules.begin(), m_modules.end(), [&](const auto& entry) {
+            return entry.instance.get() == &instance;
+        });
+    if (module == m_modules.end())
+        throw std::invalid_argument("Cannot configure an unregistered module");
+    module->additional_picard_iterations = count;
+}
+
 void Simulation::connect_modules(
     const Module& source, const Module& target, ExchangePhase phase)
 {
@@ -251,7 +264,6 @@ void Simulation::exchange_solution(bool increment_time)
 }
 
 void Simulation::run_timesteps(
-    const int add_pic_its,
     const int nonlinear_its,
     const int nsteps,
     const double max_time)
@@ -260,6 +272,15 @@ void Simulation::run_timesteps(
     if (!m_initialized) {
         throw std::runtime_error("Simulation has not been initialized");
     }
+
+    bool has_picard = std::any_of(
+        m_modules.begin(), m_modules.end(), [](const auto& module) {
+            return module.additional_picard_iterations > 0;
+        });
+    MPI_Allreduce(MPI_IN_PLACE, &has_picard, 1, MPI_C_BOOL, MPI_LOR, m_comm);
+    // Initialize the timer even for modules without corrections.
+    for (auto& module : m_modules)
+        module.timed("AdditionalPicardIterations", [] {});
 
     const int tstart = m_last_timestep + 1;
     const int tend = m_last_timestep + 1 + nsteps;
@@ -355,15 +376,12 @@ void Simulation::run_timesteps(
             }
         }
 
-        if (add_pic_its > 0) {
+        if (has_picard) {
             exchange_solution(true);
             for (auto& module : m_modules) {
-                const char* name = "AdditionalPicardIterations";
-                const auto& names = module.timers.m_names;
-                if (std::find(names.begin(), names.end(), name) == names.end())
-                    module.timers.addTimer(name);
-                module.timed(name, [&] {
-                    module->additional_picard_iterations(add_pic_its);
+                if (module.additional_picard_iterations == 0) continue;
+                module.timed("AdditionalPicardIterations", [&] {
+                    module->additional_picard_iterations(module.additional_picard_iterations);
                 });
             }
         }

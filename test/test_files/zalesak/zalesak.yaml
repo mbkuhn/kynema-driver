@@ -4,7 +4,8 @@ kynema_driver:
     - zalesak-ugf.yaml
   kynema_sgf_inp: zalesak-sgf.inp
   num_timesteps: 10
-  additional_picard_iterations: 2
+  additional_picard_iterations:
+    ugf: [2]
 
   ugf_vars:
     - volume_of_fluid

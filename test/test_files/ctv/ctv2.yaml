@@ -3,7 +3,8 @@ kynema_driver:
     - ctv-ugf2.yaml
   kynema_sgf_inp: ctv-sgf2.inp
   num_timesteps: 10
-  additional_picard_iterations: 4
+  additional_picard_iterations:
+    ugf: [4]
 
   # Variables for overset exchange
   ugf_vars:
